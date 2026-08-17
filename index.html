@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <title>Studio Renata Almeida — Pedidos</title>
-<meta name="description" content="Studio Renata Almeida — Invista em você. Produtos Malibu e La Vertuan para cabelo, rosto e corpo. Monte seu pedido no catálogo e envie direto pelo WhatsApp.">
+<meta name="description" content="Studio Renata Almeida — Invista em você. Produtos Malibu e La Virtuan para cabelo, rosto e corpo. Monte seu pedido no catálogo e envie direto pelo WhatsApp.">
 <meta name="theme-color" content="#F8F6F1">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
@@ -1391,7 +1391,7 @@
 // navegador está mesmo rodando a versão mais recente ou uma versão em cache.
 const VERSAO_SITE = 1; // reiniciado para o projeto Studio Renata Almeida
 
-const NUMERO_WHATSAPP = "79996862821"; // PLACEHOLDER — preencher com 55 + DDD + número (só números) da Malibu/La Vertuan
+const NUMERO_WHATSAPP = "5579996862821"; // formato: 55 + DDD + número, só números
 
 /* =========================================================
    CATÁLOGO VIA PLANILHA GOOGLE
@@ -1404,7 +1404,7 @@ const NUMERO_WHATSAPP = "79996862821"; // PLACEHOLDER — preencher com 55 + DDD
 // ###   COLE O LINK DA PLANILHA AQUI NA LINHA DE BAIXO:    ###
 // ###                                                      ###
 // ############################################################
-const URL_PLANILHA_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTp0I_-VKeGK3HRK3xr0lJeGyU7jkv3ZWOv2ySbr7xX363hD6ChRW6VgJ4bDrP3IQ/pub?gid=376506103&single=true&output=csv"; // PLACEHOLDER — colar aqui o link CSV publicado da planilha de Malibu/La Vertuan
+const URL_PLANILHA_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTp0I_-VKeGK3HRK3xr0lJeGyU7jkv3ZWOv2ySbr7xX363hD6ChRW6VgJ4bDrP3IQ/pub?gid=376506103&single=true&output=csv";
 // ############################################################
 //
 // Enquanto esta linha estiver em branco (ou se a planilha não puder ser
@@ -1421,19 +1421,19 @@ const URL_PLANILHA_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTp0I_
 // ###   LINK DA ABA "VARIAÇÕES" (OPCIONAL) NA LINHA ABAIXO: ###
 // ###                                                      ###
 // ############################################################
-const URL_PLANILHA_VARIACOES_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTp0I_-VKeGK3HRK3xr0lJeGyU7jkv3ZWOv2ySbr7xX363hD6ChRW6VgJ4bDrP3IQ/pub?gid=971750387&single=true&output=csv"; // PLACEHOLDER — colar aqui o link CSV publicado da aba Combinações (Volume/Fragrância)
+const URL_PLANILHA_VARIACOES_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTp0I_-VKeGK3HRK3xr0lJeGyU7jkv3ZWOv2ySbr7xX363hD6ChRW6VgJ4bDrP3IQ/pub?gid=971750387&single=true&output=csv";
 // ############################################################
 
 // Pasta padrão onde as fotos ficam guardadas no GitHub. Usada para montar o
 // link automaticamente a partir da coluna "Sub ID" da aba Combinações, sem
 // precisar colar o link inteiro em cada linha — só o nome do arquivo (com
 // extensão, ex: "1-1.png") já basta na coluna Sub ID.
-// PLACEHOLDER: trocar pelo repositório GitHub real do projeto Malibu / La Vertuan
+// PLACEHOLDER: trocar pelo repositório GitHub real do projeto Malibu / La Virtuan
 const URL_BASE_IMAGENS = "https://raw.githubusercontent.com/biasa2404/lojavirtual/main/imagens/";
 
 let PRODUTOS = [];
 let CATEGORIAS = ["Todas"];
-let MARCAS = ["Todas"]; // ex: "Todas", "Malibu", "La Vertuan" — extraído da coluna Marca da planilha
+let MARCAS = ["Todas"]; // ex: "Todas", "Malibu", "La Virtuan" — extraído da coluna Marca da planilha
 let catalogoCarregado = false; // true assim que uma lista real de produtos é obtida (planilha ou cache salvo)
 let dataCatalogoAtualizado = null; // Date do momento em que os produtos atuais foram obtidos
 
@@ -1770,6 +1770,9 @@ function blocoFotoProduto(p){
    ========================================================= */
 let produtoModalAtual = null;
 let indiceGaleriaAtual = 0;
+let modalProdutoAbertoEm = 0; // timestamp de quando o modal foi aberto — usado pra ignorar
+// o "ghost click" que o iOS/Safari às vezes dispara logo após o toque que abriu o modal,
+// o que fazia a galeria pular direto pra segunda foto.
 let selecaoVariacaoAtual = {};
 
 function tiposAplicaveis(p){
@@ -1855,6 +1858,7 @@ function abrirDetalheProduto(id){
   produtoModalAtual = p;
   imagensGaleriaModalAtual = montarGaleriaCompleta(p);
   indiceGaleriaAtual = 0;
+  modalProdutoAbertoEm = Date.now();
   selecaoVariacaoAtual = p.combinacoes ? preselecionarVariacoes(p) : {};
 
   renderFotoModalAtual();
@@ -1868,7 +1872,7 @@ function abrirDetalheProduto(id){
     : "";
 
   renderVariacoesModal();
-  aplicarSelecaoAtual();
+  aplicarSelecaoAtual(false);
   renderResumoVariacoesNoCarrinho();
   document.getElementById("sobreposicao-produto").classList.add("ativa");
 }
@@ -1897,13 +1901,21 @@ function renderFotoModalAtual(){
     el.onclick = null;
   } else {
     el.innerHTML = blocoFotoUrl(imgs[indiceGaleriaAtual], produtoModalAtual.nome);
-    el.onclick = imgs.length > 1 ? avancarGaleria : null;
+    el.onclick = imgs.length > 1 ? avancarGaleriaPorToqueNaFoto : null;
   }
   el.style.cursor = imgs.length > 1 ? "pointer" : "default";
 
   const mostrarSetas = imgs.length > 1 ? "flex" : "none";
   document.getElementById("seta-galeria-esquerda").style.display = mostrarSetas;
   document.getElementById("seta-galeria-direita").style.display = mostrarSetas;
+}
+
+function avancarGaleriaPorToqueNaFoto(){
+  // Ignora toques nos primeiros 400ms após abrir o modal — evita o "ghost click"
+  // do iOS que às vezes reaproveita o toque que abriu o modal como um segundo
+  // clique na foto, pulando pra segunda imagem sem a pessoa tocar de novo.
+  if(Date.now() - modalProdutoAbertoEm < 400) return;
+  avancarGaleria();
 }
 
 function avancarGaleria(){
@@ -1990,17 +2002,22 @@ function escolherVariacao(tipo, valor){
 }
 
 // Atualiza preço, foto (se a combinação tiver uma vinculada) e o rodapé, a partir da seleção atual
-function aplicarSelecaoAtual(){
+// Atualiza preço, foto (se a combinação tiver uma vinculada) e o rodapé, a partir da seleção atual.
+// mudarGaleria=false na abertura inicial do produto, pra sempre começar na primeira foto
+// mesmo que já exista uma variação pré-selecionada com foto própria.
+function aplicarSelecaoAtual(mudarGaleria = true){
   const p = produtoModalAtual;
   document.getElementById("preco-produto-modal").textContent = formatarPreco(calcularPrecoComVariacao(p, selecaoVariacaoAtual));
 
-  const combo = encontrarCombinacao(p, selecaoVariacaoAtual);
-  if(combo && combo.imagem){
-    const indice = imagensGaleriaModalAtual.indexOf(combo.imagem);
-    if(indice !== -1){
-      indiceGaleriaAtual = indice;
-      renderFotoModalAtual();
-      renderGaleriaPontos();
+  if(mudarGaleria){
+    const combo = encontrarCombinacao(p, selecaoVariacaoAtual);
+    if(combo && combo.imagem){
+      const indice = imagensGaleriaModalAtual.indexOf(combo.imagem);
+      if(indice !== -1){
+        indiceGaleriaAtual = indice;
+        renderFotoModalAtual();
+        renderGaleriaPontos();
+      }
     }
   }
 
@@ -2419,7 +2436,7 @@ function renderCarrinho(){
   const opcoesEl = document.getElementById("opcoes-pagamento");
   opcoesEl.innerHTML = FORMAS_PAGAMENTO.map(f => `
     <button class="opcao-pagamento ${pagamentoEscolhido === f.id ? 'selecionada' : ''}" onclick="escolherPagamento('${f.id}')">
-      ${f.nome}${f.acrescimo ? `<span class="aviso-acrescimo-cartao">+${Math.round(f.acrescimo * 100)}% · até ${f.parcelasMax}x</span>` : ''}
+      ${f.nome}${f.parcelasMax ? `<span class="aviso-acrescimo-cartao">até ${f.parcelasMax}x</span>` : ''}
     </button>
   `).join("");
 
@@ -2440,17 +2457,8 @@ function renderCarrinho(){
   }
 
   const linhaDetalhe = document.getElementById("linha-detalhe-total");
-  if(formaAtual && formaAtual.acrescimo){
-    linhaDetalhe.style.display = "flex";
-    linhaDetalhe.innerHTML = `
-      <span>Subtotal</span>
-      <span class="tabular">${formatarPreco(totalCarrinho())}</span>
-    `;
-    document.getElementById("rotulo-total").textContent = `Total no cartão (+${Math.round(formaAtual.acrescimo * 100)}%)`;
-  } else {
-    linhaDetalhe.style.display = "none";
-    document.getElementById("rotulo-total").textContent = "Total";
-  }
+  linhaDetalhe.style.display = "none";
+  document.getElementById("rotulo-total").textContent = "Total";
 
   let notaParcelaEl = document.querySelector(".caixa-total .nota-parcela");
   if(formaAtual && formaAtual.acrescimo && parcelasEscolhidas > 1){
@@ -2631,11 +2639,7 @@ function renderRodapeCatalogo(){
   const el = document.getElementById("rodape-catalogo");
   if(!dataCatalogoAtualizado){ el.textContent = ""; return; }
 
-  const d = dataCatalogoAtualizado;
-  const pad = n => String(n).padStart(2, "0");
-  const dataFormatada = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} às ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-
-  el.textContent = `Catálogo #${gerarIdDeData(d)} · atualizado em ${dataFormatada} · site v${VERSAO_SITE}`;
+  el.textContent = `Catálogo #${gerarIdDeData(dataCatalogoAtualizado)}`;
 }
 
 function gerarIdDeData(data){
@@ -2658,8 +2662,7 @@ function montarMensagemWhatsapp(idPedido){
     msg += `• ${item.qtd}x ${item.nome} — ${formatarPreco(item.qtd * item.preco)}\n`;
   });
   if(forma && forma.acrescimo){
-    msg += `\nSubtotal: ${formatarPreco(totalCarrinho())}`;
-    msg += `\n*Total no cartão (+${Math.round(forma.acrescimo * 100)}%): ${formatarPreco(totalComAcrescimo())}*`;
+    msg += `\n*Total: ${formatarPreco(totalComAcrescimo())}*`;
     msg += `\nPagamento: ${nomePagamento}${parcelasEscolhidas > 1 ? ` — em ${parcelasEscolhidas}x de ${formatarPreco(valorParcela())}` : " — à vista"}`;
   } else {
     msg += `\n*Total: ${formatarPreco(totalCarrinho())}*`;
@@ -2689,7 +2692,7 @@ function montarPreviaVisual(idPedido){
     ? `<b>Entrega</b>\n${escapeHtml(endereco.estadoNome)} · ${escapeHtml(endereco.cidade)}\nBairro: ${escapeHtml(endereco.bairro)}\nRua: ${escapeHtml(endereco.rua)}${endereco.complemento.trim() ? `\nComplemento: ${escapeHtml(endereco.complemento)}` : ""}`
     : `<b>Retirada no local</b>`;
   const blocoPagamento = (forma && forma.acrescimo)
-    ? `Subtotal: ${formatarPreco(totalCarrinho())}\n<b>Total no cartão (+${Math.round(forma.acrescimo * 100)}%): ${formatarPreco(totalComAcrescimo())}</b>\nPagamento: ${escapeHtml(nomePagamento)}${parcelasEscolhidas > 1 ? ` — em ${parcelasEscolhidas}x de ${formatarPreco(valorParcela())}` : " — à vista"}`
+    ? `<b>Total: ${formatarPreco(totalComAcrescimo())}</b>\nPagamento: ${escapeHtml(nomePagamento)}${parcelasEscolhidas > 1 ? ` — em ${parcelasEscolhidas}x de ${formatarPreco(valorParcela())}` : " — à vista"}`
     : `<b>Total: ${formatarPreco(totalCarrinho())}</b>\nPagamento: ${escapeHtml(nomePagamento)}`;
   return `<b>Novo pedido — Studio Renata Almeida</b>\nPedido: #${idPedido}\nCliente: ${escapeHtml(nomeCliente)}\n\n${linhas}\n\n${blocoPagamento}\n\n${blocoEntrega}`;
 }
