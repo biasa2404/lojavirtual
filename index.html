@@ -1391,7 +1391,7 @@
 // navegador está mesmo rodando a versão mais recente ou uma versão em cache.
 const VERSAO_SITE = 1; // reiniciado para o projeto Studio Renata Almeida
 
-const NUMERO_WHATSAPP = "5579999253542"; // formato: 55 + DDD + número, só números
+const NUMERO_WHATSAPP = "5579996862821"; // formato: 55 + DDD + número, só números
 
 /* =========================================================
    CATÁLOGO VIA PLANILHA GOOGLE
@@ -1600,6 +1600,42 @@ function paraSimNao(texto){
   return (texto || "").trim().toLowerCase() === "sim";
 }
 
+// Procura, no texto bruto do CSV, uma linha que comece com "Última atualização"
+// (é a célula que a pessoa mantém na planilha, geralmente com fórmula =AGORA(),
+// que recalcula sozinha toda vez que a planilha é editada ou reaberta) e devolve
+// o valor da célula ao lado como Date. Se não achar ou não conseguir interpretar
+// a data, devolve null — o site então usa o horário em que o site buscou os
+// dados como alternativa, em vez de travar ou mostrar algo errado.
+function extrairDataAtualizacaoDoCSV(texto){
+  const linhas = texto.split(/\r\n|\n|\r/);
+  for(const linha of linhas){
+    const primeiroCampo = (linha.split(",")[0] || "").replace(/^"|"$/g, "").trim().toLowerCase();
+    if(primeiroCampo.startsWith("última atualização") || primeiroCampo.startsWith("ultima atualizacao")){
+      const resto = linha.substring(linha.indexOf(",") + 1);
+      const valor = (resto.split(",")[0] || "").replace(/^"|"$/g, "").trim();
+      const data = interpretarDataHoraBR(valor);
+      if(data) return data;
+    }
+  }
+  return null;
+}
+
+// Aceita "dd/mm/aaaa hh:mm:ss", "dd/mm/aaaa hh:mm" (formato padrão do Brasil no
+// Google Sheets) e, como alternativa, qualquer formato que o próprio navegador
+// já reconheça (ex: ISO "aaaa-mm-dd hh:mm").
+function interpretarDataHoraBR(texto){
+  if(!texto) return null;
+  const m = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})[, ]+(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if(m){
+    let [, dia, mes, ano, hora, min, seg] = m;
+    if(ano.length === 2) ano = "20" + ano;
+    const data = new Date(Number(ano), Number(mes) - 1, Number(dia), Number(hora), Number(min), Number(seg || 0));
+    return isNaN(data.getTime()) ? null : data;
+  }
+  const tentativa = new Date(texto);
+  return isNaN(tentativa.getTime()) ? null : tentativa;
+}
+
 const CHAVE_CACHE_CATALOGO = "renata_almeida_catalogo_cache";
 const VERSAO_CACHE_CATALOGO = 4; // aumentar sempre que a estrutura OU o cálculo dos dados do catálogo mudar
 
@@ -1616,9 +1652,10 @@ function carregarCacheCatalogo(){
   }
 }
 
-function salvarCacheCatalogo(produtos){
+function salvarCacheCatalogo(produtos, dataAtualizacao){
   try{
-    localStorage.setItem(CHAVE_CACHE_CATALOGO, JSON.stringify({ produtos, salvoEm: Date.now(), versao: VERSAO_CACHE_CATALOGO }));
+    const salvoEm = dataAtualizacao instanceof Date ? dataAtualizacao.getTime() : Date.now();
+    localStorage.setItem(CHAVE_CACHE_CATALOGO, JSON.stringify({ produtos, salvoEm, versao: VERSAO_CACHE_CATALOGO }));
   }catch(e){
     // armazenamento indisponível (ex: modo privado) — segue sem cache, sem travar o app
   }
@@ -1703,6 +1740,7 @@ async function carregarProdutosDaPlanilha(){
     if(!respostaCatalogo.ok) throw new Error("Falha ao buscar planilha");
     const texto = await respostaCatalogo.text();
     const linhas = analisarCSV(texto);
+    const dataDaPlanilha = extrairDataAtualizacaoDoCSV(texto);
 
     const produtos = linhas.map((l, i) => {
       const id = parseInt(l["id"], 10) || (i + 1);
@@ -1733,8 +1771,11 @@ async function carregarProdutosDaPlanilha(){
       CATEGORIAS = ["Todas", ...new Set(PRODUTOS.map(p => p.categoria))];
     MARCAS = ["Todas", ...new Set(PRODUTOS.map(p => p.marca).filter(Boolean))];
       catalogoCarregado = true;
-      dataCatalogoAtualizado = new Date();
-      salvarCacheCatalogo(produtos);
+      // Usa a data/hora que a própria planilha informa como "última atualização".
+      // Só cai no horário em que o site buscou os dados se essa célula não
+      // existir ou não puder ser interpretada (planilha antiga, sem a linha).
+      dataCatalogoAtualizado = dataDaPlanilha || new Date();
+      salvarCacheCatalogo(produtos, dataCatalogoAtualizado);
     }
   }catch(e){
     // Sem internet, planilha indisponível ou demorou demais: mantém o cache (se havia)
