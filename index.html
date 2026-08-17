@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <title>Studio Renata Almeida — Pedidos</title>
-<meta name="description" content="Studio Renata Almeida — Invista em você. Produtos Malibu e La Virtuan para cabelo, rosto e corpo. Monte seu pedido no catálogo e envie direto pelo WhatsApp.">
+<meta name="description" content="Studio Renata Almeida — Invista em você. Produtos Malibu e La Vertuan para cabelo, rosto e corpo. Monte seu pedido no catálogo e envie direto pelo WhatsApp.">
 <meta name="theme-color" content="#F8F6F1">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
@@ -1391,7 +1391,7 @@
 // navegador está mesmo rodando a versão mais recente ou uma versão em cache.
 const VERSAO_SITE = 1; // reiniciado para o projeto Studio Renata Almeida
 
-const NUMERO_WHATSAPP = "79996862821"; // PLACEHOLDER — preencher com 55 + DDD + número (só números) da Malibu/La Virtuan
+const NUMERO_WHATSAPP = "79996862821"; // PLACEHOLDER — preencher com 55 + DDD + número (só números) da Malibu/La Vertuan
 
 /* =========================================================
    CATÁLOGO VIA PLANILHA GOOGLE
@@ -1404,7 +1404,7 @@ const NUMERO_WHATSAPP = "79996862821"; // PLACEHOLDER — preencher com 55 + DDD
 // ###   COLE O LINK DA PLANILHA AQUI NA LINHA DE BAIXO:    ###
 // ###                                                      ###
 // ############################################################
-const URL_PLANILHA_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTp0I_-VKeGK3HRK3xr0lJeGyU7jkv3ZWOv2ySbr7xX363hD6ChRW6VgJ4bDrP3IQ/pub?gid=376506103&single=true&output=csv"; // PLACEHOLDER — colar aqui o link CSV publicado da planilha de Malibu/La Virtuan
+const URL_PLANILHA_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTp0I_-VKeGK3HRK3xr0lJeGyU7jkv3ZWOv2ySbr7xX363hD6ChRW6VgJ4bDrP3IQ/pub?gid=376506103&single=true&output=csv"; // PLACEHOLDER — colar aqui o link CSV publicado da planilha de Malibu/La Vertuan
 // ############################################################
 //
 // Enquanto esta linha estiver em branco (ou se a planilha não puder ser
@@ -1428,12 +1428,12 @@ const URL_PLANILHA_VARIACOES_CSV = "https://docs.google.com/spreadsheets/d/e/2PA
 // link automaticamente a partir da coluna "Sub ID" da aba Combinações, sem
 // precisar colar o link inteiro em cada linha — só o nome do arquivo (com
 // extensão, ex: "1-1.png") já basta na coluna Sub ID.
-// PLACEHOLDER: trocar pelo repositório GitHub real do projeto Malibu / La Virtuan
+// PLACEHOLDER: trocar pelo repositório GitHub real do projeto Malibu / La Vertuan
 const URL_BASE_IMAGENS = "https://raw.githubusercontent.com/biasa2404/lojavirtual/main/imagens/";
 
 let PRODUTOS = [];
 let CATEGORIAS = ["Todas"];
-let MARCAS = ["Todas"]; // ex: "Todas", "Malibu", "La Virtuan" — extraído da coluna Marca da planilha
+let MARCAS = ["Todas"]; // ex: "Todas", "Malibu", "La Vertuan" — extraído da coluna Marca da planilha
 let catalogoCarregado = false; // true assim que uma lista real de produtos é obtida (planilha ou cache salvo)
 let dataCatalogoAtualizado = null; // Date do momento em que os produtos atuais foram obtidos
 
