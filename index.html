@@ -1473,7 +1473,7 @@
 // navegador está mesmo rodando a versão mais recente ou uma versão em cache.
 const VERSAO_SITE = 1; // reiniciado para o projeto Studio Renata Almeida
 
-const NUMERO_WHATSAPP = "5579999253542"; // formato: 55 + DDD + número, só números
+let NUMERO_WHATSAPP = "5579999253542"; // formato: 55 + DDD + número, só números — usado só até a planilha carregar (se ela tiver uma célula "WhatsApp:", o valor de lá assume o lugar deste)
 
 /* =========================================================
    CATÁLOGO VIA PLANILHA GOOGLE
@@ -1721,18 +1721,38 @@ function paraSimNao(texto){
 // o valor da célula ao lado como Date. Se não achar ou não conseguir interpretar
 // a data, devolve null — o site então usa o horário em que o site buscou os
 // dados como alternativa, em vez de travar ou mostrar algo errado.
-function extrairDataAtualizacaoDoCSV(texto){
+// Procura, em qualquer linha e QUALQUER coluna do CSV, uma célula que comece
+// com o rótulo pedido (ex: "Última atualização" ou "WhatsApp") e devolve o
+// valor da célula logo ao lado. Serve tanto pra células soltas no meio das
+// instruções (coluna A) quanto pra campos adicionados em outras colunas.
+function extrairCampoDoCSVPorRotulo(texto, rotulo){
   const linhas = texto.split(/\r\n|\n|\r/);
+  const rotuloAlvo = rotulo.toLowerCase();
   for(const linha of linhas){
-    const primeiroCampo = (linha.split(",")[0] || "").replace(/^"|"$/g, "").trim().toLowerCase();
-    if(primeiroCampo.startsWith("última atualização") || primeiroCampo.startsWith("ultima atualizacao")){
-      const resto = linha.substring(linha.indexOf(",") + 1);
-      const valor = (resto.split(",")[0] || "").replace(/^"|"$/g, "").trim();
-      const data = interpretarDataHoraBR(valor);
-      if(data) return data;
+    const campos = linha.split(",").map(c => c.replace(/^"|"$/g, "").trim());
+    for(let i = 0; i < campos.length - 1; i++){
+      if(campos[i].toLowerCase().startsWith(rotuloAlvo)){
+        const valor = campos[i + 1];
+        if(valor) return valor;
+      }
     }
   }
   return null;
+}
+
+function extrairDataAtualizacaoDoCSV(texto){
+  const valor = extrairCampoDoCSVPorRotulo(texto, "última atualização") || extrairCampoDoCSVPorRotulo(texto, "ultima atualizacao");
+  return valor ? interpretarDataHoraBR(valor) : null;
+}
+
+// Se a planilha tiver uma célula "WhatsApp:" com o número, o site passa a
+// usar ELE em vez do número fixo no código — assim trocar de número vira só
+// editar uma célula, sem precisar mexer no site nem me chamar.
+function extrairNumeroWhatsAppDoCSV(texto){
+  const valor = extrairCampoDoCSVPorRotulo(texto, "whatsapp");
+  if(!valor) return null;
+  const digitos = valor.replace(/\D/g, "");
+  return digitos.length >= 10 ? digitos : null; // ignora lixo/valor incompleto
 }
 
 // Aceita "dd/mm/aaaa hh:mm:ss", "dd/mm/aaaa hh:mm" (formato padrão do Brasil no
@@ -1856,6 +1876,11 @@ async function carregarProdutosDaPlanilha(){
     const texto = await respostaCatalogo.text();
     const linhas = analisarCSV(texto);
     const dataDaPlanilha = extrairDataAtualizacaoDoCSV(texto);
+    const whatsappDaPlanilha = extrairNumeroWhatsAppDoCSV(texto);
+    if(whatsappDaPlanilha){
+      NUMERO_WHATSAPP = whatsappDaPlanilha;
+      atualizarLinkWhatsappIndisponivel();
+    }
 
     const produtos = linhas.map((l, i) => {
       const id = parseInt(l["id"], 10) || (i + 1);
@@ -3123,8 +3148,11 @@ document.getElementById("campo-ordenar").innerHTML = OPCOES_ORDENACAO.map(o =>
 aplicarTema();
 atualizarBotoesVisualizacao();
 
-document.getElementById("btn-whatsapp-indisponivel").href =
-  `https://wa.me/${NUMERO_WHATSAPP}?text=${encodeURIComponent("Olá! Vi o site do Studio Renata Almeida e gostaria de fazer um pedido.")}`;
+function atualizarLinkWhatsappIndisponivel(){
+  document.getElementById("btn-whatsapp-indisponivel").href =
+    `https://wa.me/${NUMERO_WHATSAPP}?text=${encodeURIComponent("Olá! Vi o site do Studio Renata Almeida e gostaria de fazer um pedido.")}`;
+}
+atualizarLinkWhatsappIndisponivel();
 
 // Usa o cache local (se houver) antes de qualquer coisa, pra já mostrar produtos na hora,
 // sem esperar a rede — evita a tela "indisponível" piscar por um instante à toa.
