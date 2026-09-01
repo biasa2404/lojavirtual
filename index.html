@@ -932,6 +932,72 @@
   .seta-galeria:active{opacity:1; transform:translateY(-50%) scale(0.9);}
   .seta-galeria-esquerda{left:2px;}
   .seta-galeria-direita{right:2px;}
+  .btn-zoom-foto{
+    position:absolute;
+    bottom:8px; right:8px;
+    width:32px; height:32px;
+    border-radius:50%;
+    background:rgba(23,23,23,0.55);
+    color:#fff;
+    display:flex; align-items:center; justify-content:center;
+    z-index:5;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .btn-zoom-foto svg{width:16px;height:16px;}
+  .btn-zoom-foto:active{background:rgba(23,23,23,0.75);}
+
+  /* ---------- MODAL: ZOOM DA FOTO (tela cheia) ---------- */
+  .sobreposicao-zoom{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.94);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:60;
+    touch-action:none;
+  }
+  .sobreposicao-zoom.ativa{display:flex;}
+  .btn-fechar-zoom{
+    position:absolute;
+    top:calc(16px + env(safe-area-inset-top));
+    right:16px;
+    z-index:2;
+    width:38px; height:38px;
+    border-radius:50%;
+    background:rgba(255,255,255,0.14);
+    color:#fff;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .btn-fechar-zoom svg{width:18px;height:18px;}
+  .dica-zoom{
+    position:absolute;
+    top:calc(20px + env(safe-area-inset-top));
+    left:0; right:0;
+    text-align:center;
+    color:rgba(255,255,255,0.6);
+    font-size:12px;
+    z-index:1;
+    pointer-events:none;
+    transition:opacity .3s ease;
+  }
+  .area-zoom{
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .area-zoom img{
+    max-width:100%;
+    max-height:100%;
+    touch-action:none;
+    transform-origin:center center;
+    will-change:transform;
+    user-select:none;
+    -webkit-user-drag:none;
+  }
   .categoria-produto-modal{
     display:inline-block;
     background:var(--cobre-fundo);
@@ -1346,6 +1412,9 @@
         <div class="foto-produto-modal" id="foto-produto-modal"></div>
         <button class="seta-galeria seta-galeria-esquerda" id="seta-galeria-esquerda" onclick="event.stopPropagation(); voltarGaleria();" aria-label="Foto anterior">&#8249;</button>
         <button class="seta-galeria seta-galeria-direita" id="seta-galeria-direita" onclick="event.stopPropagation(); avancarGaleria();" aria-label="Próxima foto">&#8250;</button>
+        <button class="btn-zoom-foto" id="btn-zoom-foto" onclick="event.stopPropagation(); abrirZoomFoto();" aria-label="Ampliar foto">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35M11 8v6M8 11h6"/></svg>
+        </button>
       </div>
       <div class="galeria-pontos" id="galeria-pontos-modal"></div>
       <span class="categoria-produto-modal" id="categoria-produto-modal"></span>
@@ -1358,6 +1427,17 @@
       <div class="resumo-variacoes-carrinho" id="resumo-variacoes-carrinho"></div>
     </div>
     <div class="modal-previa-rodape" id="rodape-produto-modal"></div>
+  </div>
+</div>
+
+<!-- MODAL: ZOOM DA FOTO -->
+<div class="sobreposicao-zoom" id="sobreposicao-zoom">
+  <button class="btn-fechar-zoom" onclick="fecharZoomFoto()" aria-label="Fechar zoom">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+  </button>
+  <div class="dica-zoom" id="dica-zoom">Toque duas vezes ou belisque pra ampliar</div>
+  <div class="area-zoom" id="area-zoom">
+    <img id="imagem-zoom" alt="">
   </div>
 </div>
 
@@ -1436,6 +1516,31 @@ let CATEGORIAS = ["Todas"];
 let MARCAS = ["Todas"]; // ex: "Todas", "Malibu", "La Vertuan" — extraído da coluna Marca da planilha
 let catalogoCarregado = false; // true assim que uma lista real de produtos é obtida (planilha ou cache salvo)
 let dataCatalogoAtualizado = null; // Date do momento em que os produtos atuais foram obtidos
+
+// Impede a página de fundo de rolar enquanto um modal (produto ou prévia do
+// pedido) está aberto — sem isso, no celular, arrastar o dedo dentro do
+// modal também rolava a página por trás, e o cabeçalho "sticky" parecia se
+// mexer junto (porque na verdade era o body inteiro que estava rolando).
+let posicaoDeRolagemAntesDoModal = 0;
+let modaisAbertos = 0;
+
+function bloquearRolagemFundo(){
+  modaisAbertos++;
+  if(modaisAbertos > 1) return; // já estava bloqueado por outro modal
+  posicaoDeRolagemAntesDoModal = window.scrollY;
+  document.body.style.position = "fixed";
+  document.body.style.top = `-${posicaoDeRolagemAntesDoModal}px`;
+  document.body.style.width = "100%";
+}
+
+function liberarRolagemFundo(){
+  modaisAbertos = Math.max(0, modaisAbertos - 1);
+  if(modaisAbertos > 0) return; // ainda tem outro modal aberto
+  document.body.style.position = "";
+  document.body.style.top = "";
+  document.body.style.width = "";
+  window.scrollTo(0, posicaoDeRolagemAntesDoModal);
+}
 
 const FORMAS_PAGAMENTO = [
   { id: "pix", nome: "PIX" },
@@ -1922,6 +2027,7 @@ function abrirDetalheProduto(id){
   aplicarSelecaoAtual(false);
   renderResumoVariacoesNoCarrinho();
   document.getElementById("sobreposicao-produto").classList.add("ativa");
+  bloquearRolagemFundo();
 }
 
 // Monta a lista completa de fotos: as de detalhe (Imagem/Imagem 2/Imagem 3) seguidas
@@ -1955,6 +2061,7 @@ function renderFotoModalAtual(){
   const mostrarSetas = imgs.length > 1 ? "flex" : "none";
   document.getElementById("seta-galeria-esquerda").style.display = mostrarSetas;
   document.getElementById("seta-galeria-direita").style.display = mostrarSetas;
+  document.getElementById("btn-zoom-foto").style.display = imgs.length > 0 ? "flex" : "none";
 }
 
 function avancarGaleriaPorToqueNaFoto(){
@@ -2000,6 +2107,110 @@ function configurarGestoDeSwipeGaleria(){
       }
     }
   });
+}
+
+/* =========================================================
+   ZOOM DA FOTO — tela cheia, com pinça (dois dedos), duplo
+   toque e arrastar pra mover quando ampliado.
+   ========================================================= */
+let zoomEscalaAtual = 1;
+let zoomTranslateX = 0;
+let zoomTranslateY = 0;
+let zoomPinchDistanciaInicial = 0;
+let zoomEscalaNoInicioDoPinch = 1;
+let zoomArrastoInicioX = 0;
+let zoomArrastoInicioY = 0;
+let zoomTranslateNoInicioDoArrasto = { x: 0, y: 0 };
+let zoomUltimoToqueEm = 0;
+const ZOOM_MAXIMO = 4;
+const ZOOM_DUPLO_TOQUE = 2.5;
+
+function abrirZoomFoto(){
+  const imgs = imagensDoProdutoModal();
+  if(imgs.length === 0) return;
+  document.getElementById("imagem-zoom").src = imgs[indiceGaleriaAtual];
+  resetarZoom();
+  document.getElementById("sobreposicao-zoom").classList.add("ativa");
+  document.getElementById("dica-zoom").style.opacity = "1";
+  bloquearRolagemFundo();
+}
+
+function fecharZoomFoto(){
+  document.getElementById("sobreposicao-zoom").classList.remove("ativa");
+  liberarRolagemFundo();
+}
+
+function resetarZoom(){
+  zoomEscalaAtual = 1;
+  zoomTranslateX = 0;
+  zoomTranslateY = 0;
+  aplicarTransformZoom();
+}
+
+function aplicarTransformZoom(){
+  document.getElementById("imagem-zoom").style.transform =
+    `translate(${zoomTranslateX}px, ${zoomTranslateY}px) scale(${zoomEscalaAtual})`;
+}
+
+function distanciaEntreToques(t1, t2){
+  return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+}
+
+function configurarGestosDeZoom(){
+  const container = document.getElementById("area-zoom");
+  const dica = document.getElementById("dica-zoom");
+
+  container.addEventListener("touchstart", (e) => {
+    dica.style.opacity = "0";
+    if(e.touches.length === 2){
+      zoomPinchDistanciaInicial = distanciaEntreToques(e.touches[0], e.touches[1]);
+      zoomEscalaNoInicioDoPinch = zoomEscalaAtual;
+    } else if(e.touches.length === 1){
+      const agora = Date.now();
+      if(agora - zoomUltimoToqueEm < 300){
+        // duplo toque: alterna entre normal e ampliado
+        zoomEscalaAtual = zoomEscalaAtual > 1 ? 1 : ZOOM_DUPLO_TOQUE;
+        zoomTranslateX = 0;
+        zoomTranslateY = 0;
+        aplicarTransformZoom();
+      }
+      zoomUltimoToqueEm = agora;
+      zoomArrastoInicioX = e.touches[0].clientX;
+      zoomArrastoInicioY = e.touches[0].clientY;
+      zoomTranslateNoInicioDoArrasto = { x: zoomTranslateX, y: zoomTranslateY };
+    }
+  }, { passive: true });
+
+  container.addEventListener("touchmove", (e) => {
+    if(e.touches.length === 2){
+      e.preventDefault();
+      const distanciaAtual = distanciaEntreToques(e.touches[0], e.touches[1]);
+      const fator = distanciaAtual / zoomPinchDistanciaInicial;
+      zoomEscalaAtual = Math.min(ZOOM_MAXIMO, Math.max(1, zoomEscalaNoInicioDoPinch * fator));
+      aplicarTransformZoom();
+    } else if(e.touches.length === 1 && zoomEscalaAtual > 1){
+      e.preventDefault();
+      zoomTranslateX = zoomTranslateNoInicioDoArrasto.x + (e.touches[0].clientX - zoomArrastoInicioX);
+      zoomTranslateY = zoomTranslateNoInicioDoArrasto.y + (e.touches[0].clientY - zoomArrastoInicioY);
+      aplicarTransformZoom();
+    }
+  }, { passive: false });
+
+  container.addEventListener("touchend", () => {
+    // volta pro tamanho normal se ficou "quase 1x" (evita ficar preso num
+    // zoom minúsculo depois de belisco pra fora)
+    if(zoomEscalaAtual <= 1.02){
+      resetarZoom();
+    }
+  });
+
+  // Bônus pra quem está testando no computador: roda do mouse também dá zoom.
+  container.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    zoomEscalaAtual = Math.min(ZOOM_MAXIMO, Math.max(1, zoomEscalaAtual + (e.deltaY < 0 ? 0.3 : -0.3)));
+    if(zoomEscalaAtual <= 1.02){ zoomEscalaAtual = 1; zoomTranslateX = 0; zoomTranslateY = 0; }
+    aplicarTransformZoom();
+  }, { passive: false });
 }
 
 function avancarGaleria(){
@@ -2202,6 +2413,7 @@ function ajustarQtdResumoModal(chave, delta){
 
 function fecharDetalheProduto(){
   document.getElementById("sobreposicao-produto").classList.remove("ativa");
+  liberarRolagemFundo();
 }
 
 /* =========================================================
@@ -2794,10 +3006,12 @@ function abrirPreviaEnvio(){
 
   document.getElementById("bolha-mensagem").innerHTML = montarPreviaVisual(idPedido);
   document.getElementById("sobreposicao-previa").classList.add("ativa");
+  bloquearRolagemFundo();
 }
 
 function fecharPreviaEnvio(){
   document.getElementById("sobreposicao-previa").classList.remove("ativa");
+  liberarRolagemFundo();
 }
 
 function marcarPedidoEnviado(){
@@ -2919,6 +3133,7 @@ renderCatalogo();
 renderAbas();
 irPara("catalogo");
 configurarGestoDeSwipeGaleria();
+configurarGestosDeZoom();
 
 // Busca a versão mais atual da planilha em segundo plano e atualiza a tela quando chegar
 carregarProdutosDaPlanilha().then(() => {
