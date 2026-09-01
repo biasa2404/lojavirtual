@@ -898,13 +898,13 @@
     background:var(--grafite);
     border:1px solid var(--linha);
     border-radius:12px;
-    height:230px;
+    aspect-ratio:3/4; /* formato padrão de foto vertical do iPhone — sem faixas brancas */
     display:flex;align-items:center;justify-content:center;
     color:var(--aco);
     margin-bottom:16px;
     overflow:hidden;
   }
-  .foto-produto-modal .img-produto{object-fit:contain; background:#FFFFFF;}
+  .foto-produto-modal .img-produto{object-fit:cover; background:#FFFFFF;}
   .foto-produto-modal svg{width:56px;height:56px;}
   .seta-galeria{
     position:absolute;
@@ -1404,7 +1404,7 @@ const NUMERO_WHATSAPP = "5579999253542"; // formato: 55 + DDD + número, só nú
 // ###   COLE O LINK DA PLANILHA AQUI NA LINHA DE BAIXO:    ###
 // ###                                                      ###
 // ############################################################
-const URL_PLANILHA_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRxUT4AoPRRt1UiupZjs1VtkS51xxvPOKUlWT2UHXcrGDEkN63k1-wA5szoM958PA/pub?gid=1845901674&single=true&output=csv";
+const URL_PLANILHA_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTp0I_-VKeGK3HRK3xr0lJeGyU7jkv3ZWOv2ySbr7xX363hD6ChRW6VgJ4bDrP3IQ/pub?gid=376506103&single=true&output=csv";
 // ############################################################
 //
 // Enquanto esta linha estiver em branco (ou se a planilha não puder ser
@@ -1421,7 +1421,7 @@ const URL_PLANILHA_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRxUT4
 // ###   LINK DA ABA "VARIAÇÕES" (OPCIONAL) NA LINHA ABAIXO: ###
 // ###                                                      ###
 // ############################################################
-const URL_PLANILHA_VARIACOES_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRxUT4AoPRRt1UiupZjs1VtkS51xxvPOKUlWT2UHXcrGDEkN63k1-wA5szoM958PA/pub?gid=1555312101&single=true&output=csv";
+const URL_PLANILHA_VARIACOES_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTp0I_-VKeGK3HRK3xr0lJeGyU7jkv3ZWOv2ySbr7xX363hD6ChRW6VgJ4bDrP3IQ/pub?gid=971750387&single=true&output=csv";
 // ############################################################
 
 // Pasta padrão onde as fotos ficam guardadas no GitHub. Usada para montar o
