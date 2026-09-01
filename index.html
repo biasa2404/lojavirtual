@@ -1517,7 +1517,8 @@ let PRODUTOS = [];
 let CATEGORIAS = ["Todas"];
 let MARCAS = ["Todas"]; // ex: "Todas", "Malibu", "La Vertuan" — extraído da coluna Marca da planilha
 let catalogoCarregado = false; // true assim que uma lista real de produtos é obtida (planilha ou cache salvo)
-let dataCatalogoAtualizado = null; // Date do momento em que os produtos atuais foram obtidos
+let dataCatalogoAtualizado = null; // Date do momento em que os produtos atuais foram obtidos (uso interno, cache)
+let textoIdCatalogo = null; // valor BRUTO da célula B3 (aba Catálogo) — mostrado tal e qual no rodapé
 
 // Impede a página de fundo de rolar enquanto um modal (produto, zoom ou
 // prévia do pedido) está aberto — sem isso, no celular, arrastar o dedo
@@ -1740,11 +1741,6 @@ function extrairCampoDoCSVPorRotulo(texto, rotulo){
   return null;
 }
 
-function extrairDataAtualizacaoDoCSV(texto){
-  const valor = extrairCampoDoCSVPorRotulo(texto, "última atualização") || extrairCampoDoCSVPorRotulo(texto, "ultima atualizacao");
-  return valor ? interpretarDataHoraBR(valor) : null;
-}
-
 // Se a planilha tiver uma célula "WhatsApp:" com o número, o site passa a
 // usar ELE em vez do número fixo no código — assim trocar de número vira só
 // editar uma célula, sem precisar mexer no site nem me chamar.
@@ -1787,10 +1783,10 @@ function carregarCacheCatalogo(){
   }
 }
 
-function salvarCacheCatalogo(produtos, dataAtualizacao){
+function salvarCacheCatalogo(produtos, dataAtualizacao, textoId){
   try{
     const salvoEm = dataAtualizacao instanceof Date ? dataAtualizacao.getTime() : Date.now();
-    localStorage.setItem(CHAVE_CACHE_CATALOGO, JSON.stringify({ produtos, salvoEm, versao: VERSAO_CACHE_CATALOGO }));
+    localStorage.setItem(CHAVE_CACHE_CATALOGO, JSON.stringify({ produtos, salvoEm, textoId: textoId || null, versao: VERSAO_CACHE_CATALOGO }));
   }catch(e){
     // armazenamento indisponível (ex: modo privado) — segue sem cache, sem travar o app
   }
@@ -1860,6 +1856,7 @@ async function carregarProdutosDaPlanilha(){
     MARCAS = ["Todas", ...new Set(PRODUTOS.map(p => p.marca).filter(Boolean))];
     catalogoCarregado = true;
     dataCatalogoAtualizado = new Date(cache.salvoEm);
+    textoIdCatalogo = cache.textoId || null;
   }
 
   if(!URL_PLANILHA_CSV){
@@ -1875,7 +1872,12 @@ async function carregarProdutosDaPlanilha(){
     if(!respostaCatalogo.ok) throw new Error("Falha ao buscar planilha");
     const texto = await respostaCatalogo.text();
     const linhas = analisarCSV(texto);
-    const dataDaPlanilha = extrairDataAtualizacaoDoCSV(texto);
+    // Valor BRUTO da célula B3 (ao lado de "Última atualização:") — é isso que
+    // aparece no rodapé como "Catálogo #...", exatamente como está na planilha,
+    // sem reformatar. Também tenta interpretar como data só pra guardar no
+    // cache local (uso interno, não aparece na tela).
+    const valorBrutoB3 = extrairCampoDoCSVPorRotulo(texto, "última atualização") || extrairCampoDoCSVPorRotulo(texto, "ultima atualizacao");
+    const dataDaPlanilha = valorBrutoB3 ? interpretarDataHoraBR(valorBrutoB3) : null;
     const whatsappDaPlanilha = extrairNumeroWhatsAppDoCSV(texto);
     if(whatsappDaPlanilha){
       NUMERO_WHATSAPP = whatsappDaPlanilha;
@@ -1917,11 +1919,11 @@ async function carregarProdutosDaPlanilha(){
       CATEGORIAS = ["Todas", ...new Set(PRODUTOS.map(p => p.categoria))];
     MARCAS = ["Todas", ...new Set(PRODUTOS.map(p => p.marca).filter(Boolean))];
       catalogoCarregado = true;
-      // Usa a data/hora que a própria planilha informa como "última atualização".
-      // Só cai no horário em que o site buscou os dados se essa célula não
-      // existir ou não puder ser interpretada (planilha antiga, sem a linha).
+      // Usa a data/hora que a própria planilha informa como "última atualização"
+      // só pro cache interno. O que aparece na tela é o valor bruto da célula.
       dataCatalogoAtualizado = dataDaPlanilha || new Date();
-      salvarCacheCatalogo(produtos, dataCatalogoAtualizado);
+      if(valorBrutoB3) textoIdCatalogo = valorBrutoB3;
+      salvarCacheCatalogo(produtos, dataCatalogoAtualizado, textoIdCatalogo);
     }
   }catch(e){
     // Sem internet, planilha indisponível ou demorou demais: mantém o cache (se havia)
@@ -2968,9 +2970,9 @@ function confirmarLimpezaCarrinho(){
    ========================================================= */
 function renderRodapeCatalogo(){
   const el = document.getElementById("rodape-catalogo");
-  if(!dataCatalogoAtualizado){ el.textContent = ""; return; }
+  if(!textoIdCatalogo){ el.textContent = ""; return; }
 
-  el.textContent = `Catálogo #${gerarIdDeData(dataCatalogoAtualizado)}`;
+  el.textContent = `Catálogo #${textoIdCatalogo}`;
 }
 
 function gerarIdDeData(data){
@@ -3163,6 +3165,7 @@ if(cacheInicial){
     MARCAS = ["Todas", ...new Set(PRODUTOS.map(p => p.marca).filter(Boolean))];
   catalogoCarregado = true;
   dataCatalogoAtualizado = new Date(cacheInicial.salvoEm);
+  textoIdCatalogo = cacheInicial.textoId || null;
 }
 
 renderChipsCategoria();
