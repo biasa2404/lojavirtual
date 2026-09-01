@@ -101,6 +101,20 @@
   .interruptor.ativo{background:var(--confirma);}
   .interruptor.ativo::after{left:20px;}
 
+  .btn-selecionar-varias{
+    display:block;
+    text-align:center;
+    padding:11px;
+    margin-bottom:12px;
+    border:1.5px dashed var(--champagne-escuro);
+    border-radius:9px;
+    color:var(--champagne-escuro);
+    font-size:13px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .btn-selecionar-varias:active{background:var(--cobre-fundo, rgba(176,131,71,0.08));}
+  .btn-selecionar-varias input{display:none;}
   .grade-fotos{display:grid; grid-template-columns:repeat(3, 1fr); gap:10px;}
   .slot-foto{
     aspect-ratio:1; border-radius:10px; border:1.5px dashed var(--linha);
@@ -328,6 +342,10 @@
 
     <div class="cartao">
       <div class="titulo-cartao">Fotos (até 5)</div>
+      <label class="btn-selecionar-varias">
+        Escolher várias fotos de uma vez
+        <input type="file" accept="image/*" multiple onchange="escolherVariasFotos(this)">
+      </label>
       <div class="grade-fotos">
         <div class="slot-foto" id="slot-foto-1">
           <span class="badge-slot">1</span>
@@ -777,7 +795,45 @@ function pareceHeic(arquivo){
 async function escolherFoto(input, n){
   const arquivoOriginal = input.files[0];
   if(!arquivoOriginal) return;
+  await processarUmaFotoCompleta(arquivoOriginal, n);
+  input.value = "";
+}
 
+// Deixa escolher as 5 fotos de uma vez só (seleção múltipla do próprio
+// seletor de arquivos do celular/computador) — preenche os quadrados vazios
+// NA ORDEM em que os arquivos foram selecionados, um a um.
+async function escolherVariasFotos(input){
+  const arquivos = Array.from(input.files || []);
+  if(arquivos.length === 0) return;
+
+  const slotsVazios = [];
+  for(let n = 1; n <= QUANTIDADE_MAXIMA_FOTOS; n++){
+    if(!fotosSelecionadas[n]) slotsVazios.push(n);
+  }
+
+  if(slotsVazios.length === 0){
+    mostrarAviso("erro", "Os 5 espaços de foto já estão preenchidos. Remova alguma foto (toque no × ) antes de escolher outras.");
+    input.value = "";
+    return;
+  }
+
+  const excedentes = arquivos.length - slotsVazios.length;
+  const paraProcessar = arquivos.slice(0, slotsVazios.length);
+
+  // Processa uma de cada vez, em ordem, pra garantir que a 1ª foto escolhida
+  // vá pro primeiro espaço vazio, a 2ª pro seguinte, e assim por diante.
+  for(let i = 0; i < paraProcessar.length; i++){
+    await processarUmaFotoCompleta(paraProcessar[i], slotsVazios[i]);
+  }
+
+  if(excedentes > 0){
+    mostrarAviso("erro", `Você escolheu ${arquivos.length} fotos, mas só havia ${slotsVazios.length} espaço${slotsVazios.length === 1 ? "" : "s"} livre${slotsVazios.length === 1 ? "" : "s"}. As últimas ${excedentes} não foram usadas.`);
+  }
+
+  input.value = "";
+}
+
+async function processarUmaFotoCompleta(arquivoOriginal, n){
   const restaurarSlotVazio = () => limparSlotFoto(n);
   let arquivo = arquivoOriginal;
 
@@ -798,45 +854,50 @@ async function escolherFoto(input, n){
     }
   }
 
-  processarArquivoDeFoto(arquivo, n, restaurarSlotVazio);
+  await processarArquivoDeFoto(arquivo, n, restaurarSlotVazio);
 }
 
 function processarArquivoDeFoto(arquivo, n, restaurarSlotVazio){
-  const leitor = new FileReader();
-  leitor.onerror = () => {
-    mostrarAviso("erro", `Não consegui ler o arquivo da foto ${n}. Tenta escolher de novo.`);
-    restaurarSlotVazio();
-  };
-  leitor.onload = (ev) => {
-    const img = new Image();
-    img.onerror = () => {
-      mostrarAviso("erro", `A foto ${n} não pôde ser processada. Tenta escolher outro arquivo.`);
+  return new Promise((resolve) => {
+    const leitor = new FileReader();
+    leitor.onerror = () => {
+      mostrarAviso("erro", `Não consegui ler o arquivo da foto ${n}. Tenta escolher de novo.`);
       restaurarSlotVazio();
+      resolve();
     };
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      let { width, height } = img;
-      if(width > TAMANHO_MAXIMO_FOTO_PX || height > TAMANHO_MAXIMO_FOTO_PX){
-        const escala = TAMANHO_MAXIMO_FOTO_PX / Math.max(width, height);
-        width = Math.round(width * escala);
-        height = Math.round(height * escala);
-      }
-      canvas.width = width; canvas.height = height;
-      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
-      const dataUrl = canvas.toDataURL("image/jpeg", QUALIDADE_JPEG);
-      fotosSelecionadas[n] = { base64: dataUrl, tipo: "image/jpeg" };
+    leitor.onload = (ev) => {
+      const img = new Image();
+      img.onerror = () => {
+        mostrarAviso("erro", `A foto ${n} não pôde ser processada. Tenta escolher outro arquivo.`);
+        restaurarSlotVazio();
+        resolve();
+      };
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let { width, height } = img;
+        if(width > TAMANHO_MAXIMO_FOTO_PX || height > TAMANHO_MAXIMO_FOTO_PX){
+          const escala = TAMANHO_MAXIMO_FOTO_PX / Math.max(width, height);
+          width = Math.round(width * escala);
+          height = Math.round(height * escala);
+        }
+        canvas.width = width; canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL("image/jpeg", QUALIDADE_JPEG);
+        fotosSelecionadas[n] = { base64: dataUrl, tipo: "image/jpeg" };
 
-      const slot = document.getElementById("slot-foto-" + n);
-      slot.innerHTML = `
-        <span class="badge-slot">${n}</span>
-        <img src="${dataUrl}" alt="">
-        <button type="button" class="btn-remover-foto" onclick="event.stopPropagation(); limparSlotFoto(${n})">×</button>
-        <input type="file" accept="image/*" onchange="escolherFoto(this, ${n})">
-      `;
+        const slot = document.getElementById("slot-foto-" + n);
+        slot.innerHTML = `
+          <span class="badge-slot">${n}</span>
+          <img src="${dataUrl}" alt="">
+          <button type="button" class="btn-remover-foto" onclick="event.stopPropagation(); limparSlotFoto(${n})">×</button>
+          <input type="file" accept="image/*" onchange="escolherFoto(this, ${n})">
+        `;
+        resolve();
+      };
+      img.src = ev.target.result;
     };
-    img.src = ev.target.result;
-  };
-  leitor.readAsDataURL(arquivo);
+    leitor.readAsDataURL(arquivo);
+  });
 }
 
 async function salvarProduto(){
