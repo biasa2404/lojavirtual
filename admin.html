@@ -468,6 +468,22 @@ function esconderAvisos(){
   document.getElementById("aviso-erro").style.display = "none";
 }
 
+// Rede de segurança: qualquer erro de JavaScript que aconteça em qualquer
+// lugar da página (mesmo um que eu não previ) aparece como aviso vermelho
+// na tela, em vez de falhar em silêncio sem a pessoa saber o que houve.
+// Também reativa o botão de salvar, caso ele tenha travado no meio do processo.
+window.addEventListener("error", (evento) => {
+  mostrarAviso("erro", `Ocorreu um erro inesperado: ${evento.message}. Manda essa mensagem pra quem está cuidando do site.`);
+  const btn = document.getElementById("btn-salvar");
+  if(btn){ btn.disabled = false; btn.textContent = "Salvar produto"; }
+});
+window.addEventListener("unhandledrejection", (evento) => {
+  const mensagem = (evento.reason && evento.reason.message) ? evento.reason.message : String(evento.reason);
+  mostrarAviso("erro", `Ocorreu um erro inesperado: ${mensagem}. Manda essa mensagem pra quem está cuidando do site.`);
+  const btn = document.getElementById("btn-salvar");
+  if(btn){ btn.disabled = false; btn.textContent = "Salvar produto"; }
+});
+
 if(!URL_APPS_SCRIPT){
   document.getElementById("aviso-config").style.display = "block";
   document.getElementById("aviso-config").textContent =
