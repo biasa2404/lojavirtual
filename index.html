@@ -898,13 +898,13 @@
     background:var(--grafite);
     border:1px solid var(--linha);
     border-radius:12px;
-    aspect-ratio:3/4; /* formato padrão de foto vertical do iPhone — sem faixas brancas */
+    height:230px;
     display:flex;align-items:center;justify-content:center;
     color:var(--aco);
     margin-bottom:16px;
     overflow:hidden;
   }
-  .foto-produto-modal .img-produto{object-fit:cover; background:#FFFFFF;}
+  .foto-produto-modal .img-produto{object-fit:contain; background:#FFFFFF;}
   .foto-produto-modal svg{width:56px;height:56px;}
   .seta-galeria{
     position:absolute;
@@ -1404,7 +1404,7 @@ const NUMERO_WHATSAPP = "5579999253542"; // formato: 55 + DDD + número, só nú
 // ###   COLE O LINK DA PLANILHA AQUI NA LINHA DE BAIXO:    ###
 // ###                                                      ###
 // ############################################################
-const URL_PLANILHA_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTp0I_-VKeGK3HRK3xr0lJeGyU7jkv3ZWOv2ySbr7xX363hD6ChRW6VgJ4bDrP3IQ/pub?gid=376506103&single=true&output=csv";
+const URL_PLANILHA_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRxUT4AoPRRt1UiupZjs1VtkS51xxvPOKUlWT2UHXcrGDEkN63k1-wA5szoM958PA/pub?gid=1845901674&single=true&output=csv";
 // ############################################################
 //
 // Enquanto esta linha estiver em branco (ou se a planilha não puder ser
@@ -1421,7 +1421,7 @@ const URL_PLANILHA_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTp0I_
 // ###   LINK DA ABA "VARIAÇÕES" (OPCIONAL) NA LINHA ABAIXO: ###
 // ###                                                      ###
 // ############################################################
-const URL_PLANILHA_VARIACOES_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTp0I_-VKeGK3HRK3xr0lJeGyU7jkv3ZWOv2ySbr7xX363hD6ChRW6VgJ4bDrP3IQ/pub?gid=971750387&single=true&output=csv";
+const URL_PLANILHA_VARIACOES_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRxUT4AoPRRt1UiupZjs1VtkS51xxvPOKUlWT2UHXcrGDEkN63k1-wA5szoM958PA/pub?gid=1555312101&single=true&output=csv";
 // ############################################################
 
 // Pasta padrão onde as fotos ficam guardadas no GitHub. Usada para montar o
@@ -1963,6 +1963,43 @@ function avancarGaleriaPorToqueNaFoto(){
   // clique na foto, pulando pra segunda imagem sem a pessoa tocar de novo.
   if(Date.now() - modalProdutoAbertoEm < 400) return;
   avancarGaleria();
+}
+
+// Deixa arrastar o dedo pra trocar de foto, além de tocar/usar as setas.
+// Arrastar da direita pra esquerda avança; da esquerda pra direita, volta —
+// igual ao Instagram e a maioria dos apps de fotos.
+let toqueGaleriaInicioX = 0;
+let toqueGaleriaInicioY = 0;
+
+function configurarGestoDeSwipeGaleria(){
+  const el = document.getElementById("foto-produto-modal");
+
+  el.addEventListener("touchstart", (e) => {
+    if(e.touches.length !== 1) return;
+    toqueGaleriaInicioX = e.touches[0].clientX;
+    toqueGaleriaInicioY = e.touches[0].clientY;
+  }, { passive: true });
+
+  el.addEventListener("touchend", (e) => {
+    if(Date.now() - modalProdutoAbertoEm < 400) return; // mesma proteção contra "ghost click"
+    const toque = e.changedTouches && e.changedTouches[0];
+    if(!toque) return;
+
+    const deltaX = toque.clientX - toqueGaleriaInicioX;
+    const deltaY = toque.clientY - toqueGaleriaInicioY;
+    const DISTANCIA_MINIMA = 40;
+
+    // Só conta como "arrastar" se o movimento horizontal for bem maior que o
+    // vertical (senão confundiria com a pessoa tentando rolar a página).
+    if(Math.abs(deltaX) > DISTANCIA_MINIMA && Math.abs(deltaX) > Math.abs(deltaY) * 1.5){
+      e.preventDefault(); // evita que o toque também dispare o "avançar" de clique normal
+      if(deltaX < 0){
+        avancarGaleria(); // arrastou da direita pra esquerda → próxima foto
+      } else {
+        voltarGaleria(); // arrastou da esquerda pra direita → foto anterior
+      }
+    }
+  });
 }
 
 function avancarGaleria(){
@@ -2881,6 +2918,7 @@ renderChipsMarca();
 renderCatalogo();
 renderAbas();
 irPara("catalogo");
+configurarGestoDeSwipeGaleria();
 
 // Busca a versão mais atual da planilha em segundo plano e atualiza a tela quando chegar
 carregarProdutosDaPlanilha().then(() => {
