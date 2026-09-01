@@ -88,7 +88,9 @@
   header.top{
     padding:22px 20px 18px;
     background:#F8F6F1;
-    position:relative;
+    position:sticky;
+    top:0;
+    z-index:30;
   }
   header.top::after{
     content:"";
@@ -1517,29 +1519,37 @@ let MARCAS = ["Todas"]; // ex: "Todas", "Malibu", "La Vertuan" — extraído da 
 let catalogoCarregado = false; // true assim que uma lista real de produtos é obtida (planilha ou cache salvo)
 let dataCatalogoAtualizado = null; // Date do momento em que os produtos atuais foram obtidos
 
-// Impede a página de fundo de rolar enquanto um modal (produto ou prévia do
-// pedido) está aberto — sem isso, no celular, arrastar o dedo dentro do
-// modal também rolava a página por trás, e o cabeçalho "sticky" parecia se
-// mexer junto (porque na verdade era o body inteiro que estava rolando).
+// Impede a página de fundo de rolar enquanto um modal (produto, zoom ou
+// prévia do pedido) está aberto — sem isso, no celular, arrastar o dedo
+// dentro do modal também rolava a página por trás, e o cabeçalho "sticky"
+// parecia se mexer junto (porque na verdade era o body inteiro que estava
+// rolando).
+//
+// Em vez de contar quantas vezes "abriu"/"fechou" (um toque duplicado pelo
+// "ghost click" do celular podia desequilibrar essa conta e travar a página
+// pra sempre no modo "sem rolar"), esta função sempre CONFERE de verdade se
+// existe algum modal na tela e ajusta o body de acordo — não importa quantas
+// vezes for chamada nem em que ordem, o resultado final está sempre certo.
 let posicaoDeRolagemAntesDoModal = 0;
-let modaisAbertos = 0;
 
-function bloquearRolagemFundo(){
-  modaisAbertos++;
-  if(modaisAbertos > 1) return; // já estava bloqueado por outro modal
-  posicaoDeRolagemAntesDoModal = window.scrollY;
-  document.body.style.position = "fixed";
-  document.body.style.top = `-${posicaoDeRolagemAntesDoModal}px`;
-  document.body.style.width = "100%";
-}
+function atualizarBloqueioDeRolagem(){
+  const existeModalAberto = document.querySelector(".sobreposicao.ativa, .sobreposicao-zoom.ativa") !== null;
 
-function liberarRolagemFundo(){
-  modaisAbertos = Math.max(0, modaisAbertos - 1);
-  if(modaisAbertos > 0) return; // ainda tem outro modal aberto
-  document.body.style.position = "";
-  document.body.style.top = "";
-  document.body.style.width = "";
-  window.scrollTo(0, posicaoDeRolagemAntesDoModal);
+  if(existeModalAberto){
+    if(document.body.style.position !== "fixed"){
+      posicaoDeRolagemAntesDoModal = window.scrollY;
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${posicaoDeRolagemAntesDoModal}px`;
+      document.body.style.width = "100%";
+    }
+  } else {
+    if(document.body.style.position === "fixed"){
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
+      window.scrollTo(0, posicaoDeRolagemAntesDoModal);
+    }
+  }
 }
 
 const FORMAS_PAGAMENTO = [
@@ -2027,7 +2037,7 @@ function abrirDetalheProduto(id){
   aplicarSelecaoAtual(false);
   renderResumoVariacoesNoCarrinho();
   document.getElementById("sobreposicao-produto").classList.add("ativa");
-  bloquearRolagemFundo();
+  atualizarBloqueioDeRolagem();
 }
 
 // Monta a lista completa de fotos: as de detalhe (Imagem/Imagem 2/Imagem 3) seguidas
@@ -2132,12 +2142,12 @@ function abrirZoomFoto(){
   resetarZoom();
   document.getElementById("sobreposicao-zoom").classList.add("ativa");
   document.getElementById("dica-zoom").style.opacity = "1";
-  bloquearRolagemFundo();
+  atualizarBloqueioDeRolagem();
 }
 
 function fecharZoomFoto(){
   document.getElementById("sobreposicao-zoom").classList.remove("ativa");
-  liberarRolagemFundo();
+  atualizarBloqueioDeRolagem();
 }
 
 function resetarZoom(){
@@ -2413,7 +2423,7 @@ function ajustarQtdResumoModal(chave, delta){
 
 function fecharDetalheProduto(){
   document.getElementById("sobreposicao-produto").classList.remove("ativa");
-  liberarRolagemFundo();
+  atualizarBloqueioDeRolagem();
 }
 
 /* =========================================================
@@ -3006,12 +3016,12 @@ function abrirPreviaEnvio(){
 
   document.getElementById("bolha-mensagem").innerHTML = montarPreviaVisual(idPedido);
   document.getElementById("sobreposicao-previa").classList.add("ativa");
-  bloquearRolagemFundo();
+  atualizarBloqueioDeRolagem();
 }
 
 function fecharPreviaEnvio(){
   document.getElementById("sobreposicao-previa").classList.remove("ativa");
-  liberarRolagemFundo();
+  atualizarBloqueioDeRolagem();
 }
 
 function marcarPedidoEnviado(){
