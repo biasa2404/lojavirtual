@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Painel de Produtos — Studio Renata Almeida</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<!-- Converte fotos em HEIC (padrão do iPhone) pra JPEG, funciona em qualquer navegador
+     (sem essa biblioteca, HEIC só converte sozinho dentro do Safari). -->
+<script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+<style>
+  :root{
+    --branco-quente:#F8F6F1;
+    --champagne:#CDB892;
+    --champagne-escuro:#B08347;
+    --bege-claro:#E1D6C4;
+    --cinza-perola:#E6E4DF;
+    --preto-suave:#171717;
+    --texto-suave:#6B6255;
+    --linha:#D8CBB4;
+    --erro:#A83F35;
+    --confirma:#5F7055;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--branco-quente);
+    color:var(--preto-suave);
+    font-family:'Montserrat', sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:60px;
+  }
+  h1,h2,h3{font-family:'Playfair Display', serif; margin:0; font-weight:700;}
+  button{font-family:inherit; cursor:pointer; border:none; background:none; color:inherit;}
+  input, select, textarea{font-family:inherit; font-size:15px;}
+
+  header.top{
+    padding:22px 20px 16px;
+    background:var(--branco-quente);
+    border-bottom:3px solid var(--champagne);
+    position:sticky; top:0; z-index:10;
+  }
+  .linha-cabecalho{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    max-width:620px; margin:0 auto;
+  }
+  .marca{display:flex; align-items:center; gap:12px;}
+  .marca-simbolo{height:38px; width:auto; display:block; flex-shrink:0;}
+  .marca-divisor{width:1.5px; height:32px; background:var(--champagne-escuro); flex-shrink:0;}
+  .marca-wordmark{display:flex; flex-direction:column; align-items:center; gap:2px;}
+  .marca-studio{font-size:8.5px; font-weight:600; letter-spacing:0.38em; text-transform:uppercase; color:var(--preto-suave); text-align:center;}
+  .marca-nome{font-size:14.5px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--preto-suave); text-align:center; white-space:nowrap;}
+  .marca-painel{font-family:'Playfair Display', serif; font-style:italic; font-size:11.5px; color:var(--champagne-escuro); text-align:center;}
+
+  main{max-width:620px; margin:0 auto; padding:22px 20px;}
+
+  .cartao{
+    background:#FFFFFF;
+    border:1px solid var(--linha);
+    border-radius:12px;
+    padding:20px;
+    margin-bottom:18px;
+  }
+  .titulo-cartao{
+    font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em;
+    color:var(--champagne-escuro); margin-bottom:14px;
+  }
+
+  .campo{margin-bottom:14px;}
+  .campo label{
+    display:block; font-size:12px; font-weight:700; text-transform:uppercase;
+    letter-spacing:0.04em; color:var(--texto-suave); margin-bottom:6px;
+  }
+  .campo input[type=text], .campo input[type=number], .campo input[type=password],
+  .campo select, .campo textarea{
+    width:100%; padding:11px 12px; border-radius:8px; border:1px solid var(--linha);
+    background:var(--branco-quente); color:var(--preto-suave);
+  }
+  .campo textarea{resize:vertical; min-height:70px; line-height:1.5;}
+  .campo input:focus, .campo select:focus, .campo textarea:focus{outline:none; border-color:var(--champagne-escuro);}
+  .linha-dois-campos{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+
+  .linha-toggle{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:11px 2px; border-bottom:1px solid var(--cinza-perola);
+  }
+  .linha-toggle:last-child{border-bottom:none;}
+  .linha-toggle span{font-size:14px; font-weight:500;}
+  .interruptor{
+    position:relative; width:42px; height:24px; border-radius:12px;
+    background:var(--cinza-perola); flex-shrink:0; transition:background .15s ease;
+  }
+  .interruptor::after{
+    content:""; position:absolute; top:2px; left:2px; width:20px; height:20px;
+    border-radius:50%; background:#FFFFFF; transition:left .15s ease;
+    box-shadow:0 1px 2px rgba(0,0,0,0.2);
+  }
+  .interruptor.ativo{background:var(--confirma);}
+  .interruptor.ativo::after{left:20px;}
+
+  .grade-fotos{display:grid; grid-template-columns:repeat(3, 1fr); gap:10px;}
+  .slot-foto{
+    aspect-ratio:1; border-radius:10px; border:1.5px dashed var(--linha);
+    background:var(--branco-quente); display:flex; align-items:center; justify-content:center;
+    position:relative; overflow:hidden; cursor:pointer;
+  }
+  .slot-foto img{width:100%; height:100%; object-fit:cover; display:block;}
+  .slot-foto input[type=file]{position:absolute; inset:0; opacity:0; cursor:pointer;}
+  .slot-foto .rotulo-vazio{font-size:11px; color:var(--texto-suave); text-align:center; padding:0 8px; pointer-events:none;}
+  .slot-foto .badge-slot{
+    position:absolute; top:4px; left:4px; background:rgba(23,23,23,0.75); color:#fff;
+    font-size:9px; font-weight:700; padding:2px 6px; border-radius:5px; pointer-events:none;
+  }
+  .slot-foto .btn-remover-foto{
+    position:absolute; top:4px; right:4px; width:20px; height:20px; border-radius:50%;
+    background:rgba(23,23,23,0.75); color:#fff; display:flex; align-items:center; justify-content:center;
+    font-size:13px; z-index:2;
+  }
+
+  .btn-primario{
+    width:100%; background:var(--preto-suave); color:#FFFFFF;
+    font-weight:800; font-size:15px; text-transform:uppercase; letter-spacing:0.03em;
+    border-radius:10px; padding:16px; display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn-primario:disabled{background:var(--cinza-perola); color:var(--texto-suave);}
+  .btn-secundario{
+    background:transparent; color:var(--preto-suave); border:1.5px solid var(--linha);
+    border-radius:8px; padding:10px 16px; font-size:13px; font-weight:700;
+  }
+
+  .aba-modo{display:flex; gap:8px; margin-bottom:18px;}
+  .aba-modo button{
+    flex:1; padding:11px; border-radius:9px; border:1.5px solid var(--linha);
+    background:#FFFFFF; font-size:12.5px; font-weight:700; color:var(--texto-suave);
+  }
+  .aba-modo button.ativa{border-color:var(--champagne-escuro); background:var(--champagne); color:#FFFFFF;}
+
+  .linha-carregar{display:flex; gap:8px; align-items:flex-end;}
+  .linha-carregar .campo{flex:1; margin-bottom:0;}
+
+  /* ---------- LISTA DE PRODUTOS CADASTRADOS ---------- */
+  .filtros-lista{display:flex; flex-direction:column; gap:8px; margin-bottom:14px;}
+  .filtros-lista .linha-selects{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .filtros-lista input, .filtros-lista select{
+    padding:10px 11px; border-radius:8px; border:1px solid var(--linha);
+    background:var(--branco-quente); color:var(--preto-suave); font-size:13.5px;
+  }
+  .chips-destaque{display:flex; flex-wrap:wrap; gap:6px;}
+  .chip-destaque{
+    padding:7px 12px; border-radius:20px; border:1.5px solid var(--linha);
+    background:var(--branco-quente); color:var(--texto-suave); font-size:12px; font-weight:700;
+  }
+  .chip-destaque.ativo{border-color:var(--champagne-escuro); background:var(--champagne); color:#FFFFFF;}
+  .contagem-lista{font-size:11.5px; color:var(--texto-suave); margin-bottom:10px;}
+  .lista-produtos{display:flex; flex-direction:column; gap:8px; max-height:480px; overflow-y:auto;}
+  .item-lista-produto{
+    display:flex; align-items:center; gap:10px; padding:9px; border-radius:9px;
+    border:1px solid var(--linha); background:var(--branco-quente); cursor:pointer;
+    transition:border-color .12s ease;
+  }
+  .item-lista-produto:active{border-color:var(--champagne-escuro);}
+  .item-lista-produto .miniatura{
+    width:44px; height:44px; border-radius:7px; background:var(--cinza-perola);
+    object-fit:cover; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    color:var(--texto-suave); font-size:9px; overflow:hidden;
+  }
+  .item-lista-produto .miniatura img{width:100%; height:100%; object-fit:cover;}
+  .item-lista-produto .info-item{flex:1; min-width:0;}
+  .item-lista-produto .nome-item{font-size:14.5px; font-weight:700; color:var(--preto-suave); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .item-lista-produto .meta-item{font-size:10.5px; font-weight:500; color:var(--texto-suave); margin-top:2px; letter-spacing:0.01em;}
+  .item-lista-produto .badges-item{display:flex; flex-wrap:wrap; gap:3px; margin-top:4px;}
+  .item-lista-produto .badge-destaque{
+    font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.03em;
+    padding:1.5px 6px; border-radius:8px; border:1px solid var(--champagne-escuro); color:var(--champagne-escuro);
+    line-height:1.5;
+  }
+  .item-lista-produto .lado-direito{display:flex; flex-direction:column; align-items:flex-end; gap:2px; flex-shrink:0;}
+  .item-lista-produto .preco-item{font-size:14.5px; font-weight:700; color:var(--champagne-escuro);}
+  .item-lista-produto .seta-item{color:var(--linha); font-size:15px; line-height:1;}
+
+  .aviso-editando{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:var(--cobre-fundo); border-color:var(--champagne);
+    scroll-margin-top:100px; /* evita que o cabeçalho "sticky" cubra este aviso ao rolar até ele */
+  }
+  .aviso-editando span{font-size:13px; font-weight:700; color:var(--champagne-escuro);}
+  .btn-voltar-lista{
+    font-size:12px; font-weight:700; color:var(--preto-suave); text-decoration:underline;
+    white-space:nowrap; flex-shrink:0;
+  }
+  .sem-resultado-lista{text-align:center; padding:24px 10px; font-size:13px; color:var(--texto-suave);}
+
+  /* ---------- CATEGORIA (select + adicionar nova) ---------- */
+  .campo-categoria-nova{display:none; margin-top:8px;}
+  .campo-categoria-nova.ativo{display:block;}
+
+  .aviso{
+    border-radius:10px; padding:13px 14px; font-size:13px; line-height:1.5; margin-bottom:16px;
+    display:none;
+    scroll-margin-top:100px; /* evita que o cabeçalho "sticky" cubra o aviso ao rolar até ele */
+  }
+  .aviso.sucesso{background:rgba(95,112,85,0.12); color:var(--confirma); display:block;}
+  .aviso.erro{background:rgba(168,63,53,0.1); color:var(--erro); display:block;}
+  .aviso.info{background:var(--cinza-perola); color:var(--texto-suave); display:block;}
+
+  .rodape-senha{
+    display:flex; align-items:center; gap:8px; font-size:12px; color:var(--texto-suave);
+    margin-top:-4px; margin-bottom:14px;
+  }
+  .rodape-senha input[type=checkbox]{width:14px; height:14px;}
+
+  .icone-spin{
+    width:15px; height:15px; border:2px solid rgba(255,255,255,0.35); border-top-color:#fff;
+    border-radius:50%; animation:girar .7s linear infinite;
+  }
+  @keyframes girar{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="linha-cabecalho">
+    <div class="marca">
+      <img class="marca-simbolo" src="data:image/png;base64,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" alt="">
+      <div class="marca-divisor"></div>
+      <div class="marca-wordmark">
+        <div class="marca-studio">Studio</div>
+        <div class="marca-nome">Renata Almeida</div>
+        <div class="marca-painel">Painel de produtos</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <div class="aviso info" id="aviso-config" style="display:none;"></div>
+  <div class="aviso sucesso" id="aviso-sucesso" style="display:none;"></div>
+  <div class="aviso erro" id="aviso-erro" style="display:none;"></div>
+
+  <div class="aba-modo">
+    <button id="btn-modo-novo" class="ativa" onclick="definirModo('novo')">Novo produto</button>
+    <button id="btn-modo-editar" onclick="definirModo('editar')">Produtos cadastrados</button>
+  </div>
+
+  <div class="cartao" id="cartao-carregar" style="display:none;">
+    <div class="titulo-cartao">Produtos cadastrados</div>
+
+    <div class="linha-carregar" style="margin-bottom:12px;">
+      <div class="campo">
+        <label for="campo-id-carregar">Ir direto pro ID</label>
+        <input type="text" id="campo-id-carregar" placeholder="Ex: 7" inputmode="numeric">
+      </div>
+      <button class="btn-secundario" onclick="carregarProduto()" id="btn-carregar">Carregar</button>
+    </div>
+
+    <div class="filtros-lista">
+      <input type="text" id="filtro-busca-lista" placeholder="Buscar por nome..." oninput="renderizarListaProdutos()">
+      <div class="linha-selects">
+        <select id="filtro-marca-lista" onchange="renderizarListaProdutos()">
+          <option value="">Todas as marcas</option>
+        </select>
+        <select id="filtro-categoria-lista" onchange="renderizarListaProdutos()">
+          <option value="">Todas as categorias</option>
+        </select>
+      </div>
+      <div class="chips-destaque" id="chips-destaque">
+        <button type="button" class="chip-destaque" data-destaque="novo" onclick="alternarFiltroDestaque('novo')">Produto novo</button>
+        <button type="button" class="chip-destaque" data-destaque="recomendado" onclick="alternarFiltroDestaque('recomendado')">Recomendado</button>
+        <button type="button" class="chip-destaque" data-destaque="ofertaEspecial" onclick="alternarFiltroDestaque('ofertaEspecial')">Oferta especial</button>
+        <button type="button" class="chip-destaque" data-destaque="eKit" onclick="alternarFiltroDestaque('eKit')">Kit</button>
+      </div>
+    </div>
+
+    <div class="contagem-lista" id="contagem-lista"></div>
+    <div class="lista-produtos" id="lista-produtos">
+      <div class="sem-resultado-lista">Carregando produtos...</div>
+    </div>
+  </div>
+
+  <form id="form-produto" onsubmit="return false;" style="display:none;">
+    <div class="cartao aviso-editando" id="aviso-editando" style="display:none;">
+      <span id="texto-editando"></span>
+      <button type="button" class="btn-voltar-lista" onclick="voltarParaLista()">← Voltar pra lista</button>
+    </div>
+
+    <div class="cartao">
+      <div class="titulo-cartao">Dados do produto</div>
+
+      <div class="campo">
+        <label for="campo-produto">Nome do produto</label>
+        <input type="text" id="campo-produto" placeholder="Ex: Shampoo Reconstrutor 300ml" required>
+      </div>
+
+      <div class="linha-dois-campos">
+        <div class="campo">
+          <label for="campo-marca">Marca</label>
+          <select id="campo-marca">
+            <option value="Malibu">Malibu</option>
+            <option value="La Vertuan">La Vertuan</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label for="campo-categoria">Categoria</label>
+          <select id="campo-categoria" onchange="alternarCategoriaNova()">
+            <option value="">Carregando...</option>
+            <option value="__nova__">+ Nova categoria...</option>
+          </select>
+          <div class="campo-categoria-nova" id="campo-categoria-nova">
+            <input type="text" id="campo-categoria-nova-texto" placeholder="Nome da nova categoria">
+          </div>
+        </div>
+      </div>
+
+      <div class="campo">
+        <label for="campo-preco">Preço (R$)</label>
+        <input type="text" id="campo-preco" inputmode="numeric" placeholder="R$ 0,00" oninput="aplicarMascaraPreco(this)" required>
+      </div>
+
+      <div class="campo">
+        <label for="campo-descricao">Descrição</label>
+        <textarea id="campo-descricao" placeholder="Descrição que aparece na tela do produto"></textarea>
+      </div>
+    </div>
+
+    <div class="cartao">
+      <div class="titulo-cartao">Fotos (até 5)</div>
+      <div class="grade-fotos">
+        <div class="slot-foto" id="slot-foto-1">
+          <span class="badge-slot">1</span>
+          <span class="rotulo-vazio">Toque para escolher</span>
+          <input type="file" accept="image/*" onchange="escolherFoto(this, 1)">
+        </div>
+        <div class="slot-foto" id="slot-foto-2">
+          <span class="badge-slot">2</span>
+          <span class="rotulo-vazio">Toque para escolher</span>
+          <input type="file" accept="image/*" onchange="escolherFoto(this, 2)">
+        </div>
+        <div class="slot-foto" id="slot-foto-3">
+          <span class="badge-slot">3</span>
+          <span class="rotulo-vazio">Toque para escolher</span>
+          <input type="file" accept="image/*" onchange="escolherFoto(this, 3)">
+        </div>
+        <div class="slot-foto" id="slot-foto-4">
+          <span class="badge-slot">4</span>
+          <span class="rotulo-vazio">Toque para escolher</span>
+          <input type="file" accept="image/*" onchange="escolherFoto(this, 4)">
+        </div>
+        <div class="slot-foto" id="slot-foto-5">
+          <span class="badge-slot">5</span>
+          <span class="rotulo-vazio">Toque para escolher</span>
+          <input type="file" accept="image/*" onchange="escolherFoto(this, 5)">
+        </div>
+      </div>
+    </div>
+
+    <div class="cartao">
+      <div class="titulo-cartao">Destaques</div>
+      <div class="linha-toggle">
+        <span>Produto novo</span>
+        <button type="button" class="interruptor" id="toggle-novo" onclick="alternar('novo')"></button>
+      </div>
+      <div class="linha-toggle">
+        <span>Recomendado (selo "Top")</span>
+        <button type="button" class="interruptor" id="toggle-recomendado" onclick="alternar('recomendado')"></button>
+      </div>
+      <div class="linha-toggle">
+        <span>Oferta especial</span>
+        <button type="button" class="interruptor" id="toggle-ofertaEspecial" onclick="alternar('ofertaEspecial')"></button>
+      </div>
+      <div class="linha-toggle">
+        <span>É kit</span>
+        <button type="button" class="interruptor" id="toggle-eKit" onclick="alternar('eKit')"></button>
+      </div>
+      <div class="campo" id="campo-itens-kit" style="display:none; margin-top:12px;">
+        <label for="campo-itens-kit-texto">Itens do kit (um por linha)</label>
+        <textarea id="campo-itens-kit-texto" placeholder="Shampoo 300ml&#10;Condicionador 300ml"></textarea>
+      </div>
+    </div>
+
+    <div class="cartao">
+      <div class="titulo-cartao">Confirmação</div>
+      <div class="campo">
+        <label for="campo-senha">Senha do painel</label>
+        <input type="password" id="campo-senha" required>
+      </div>
+      <div class="rodape-senha">
+        <input type="checkbox" id="campo-lembrar-senha">
+        <label for="campo-lembrar-senha" style="margin:0; text-transform:none; font-weight:400; letter-spacing:0;">Lembrar senha neste aparelho</label>
+      </div>
+      <button class="btn-primario" id="btn-salvar" onclick="salvarProduto()">Salvar produto</button>
+    </div>
+
+  </form>
+
+</main>
+
+<script>
+/* ###########################################################################
+   ###                                                                     ###
+   ###   COLE AQUI O LINK DO APPS SCRIPT (termina em /exec):               ###
+   ###                                                                     ###
+   ########################################################################### */
+const URL_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbzFx8yhSen6sfgkMVXDt5bnC3BltG3lPa63DDCiSZXYPghBb8iTC1B-n6-hA5pipKRwEA/exec"; // PLACEHOLDER — colar o link do Web App do Google Apps Script
+/* ########################################################################### */
+
+const TAMANHO_MAXIMO_FOTO_PX = 1200; // redimensiona fotos maiores que isso antes de enviar
+const QUALIDADE_JPEG = 0.85; // 85% — praticamente idêntico ao olho, bem mais leve que PNG
+const QUANTIDADE_MAXIMA_FOTOS = 5;
+
+let modoAtual = "novo"; // "novo" | "editar"
+let idEmEdicao = null;
+let destaques = { novo: false, recomendado: false, ofertaEspecial: false, eKit: false };
+let fotosSelecionadas = {}; // guarda { base64, tipo } de cada slot (1 a 5)
+let todosOsProdutos = null; // cache da lista completa, buscada uma vez e reaproveitada
+let filtroDestaques = new Set(); // quais chips de destaque estão ativos no filtro da lista
+
+// Mapa entre a chave usada no código e o nome exato da coluna na planilha.
+const COLUNA_DESTAQUE = {
+  novo: "Novo?",
+  recomendado: "Recomendado?",
+  ofertaEspecial: "Oferta Especial?",
+  eKit: "É Kit?",
+};
+
+function produtoTemDestaque(produto, chave){
+  return String(produto[COLUNA_DESTAQUE[chave]] || "").trim().toLowerCase() === "sim";
+}
+
+function alternarFiltroDestaque(chave){
+  if(filtroDestaques.has(chave)) filtroDestaques.delete(chave);
+  else filtroDestaques.add(chave);
+  document.querySelector(`.chip-destaque[data-destaque="${chave}"]`).classList.toggle("ativo", filtroDestaques.has(chave));
+  renderizarListaProdutos();
+}
+
+function mostrarAviso(tipo, texto){
+  ["sucesso", "erro"].forEach(t => { document.getElementById("aviso-" + t).style.display = "none"; });
+  const el = document.getElementById("aviso-" + tipo);
+  el.textContent = texto;
+  el.style.display = "block";
+  el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function esconderAvisos(){
+  document.getElementById("aviso-sucesso").style.display = "none";
+  document.getElementById("aviso-erro").style.display = "none";
+}
+
+if(!URL_APPS_SCRIPT){
+  document.getElementById("aviso-config").style.display = "block";
+  document.getElementById("aviso-config").textContent =
+    "O painel ainda não está conectado ao Google Apps Script. Siga o passo a passo que te mandei pra publicar o script e cole o link em URL_APPS_SCRIPT, no início do código deste arquivo.";
+}
+
+function definirModo(modo){
+  modoAtual = modo;
+  document.getElementById("btn-modo-novo").classList.toggle("ativa", modo === "novo");
+  document.getElementById("btn-modo-editar").classList.toggle("ativa", modo === "editar");
+  document.getElementById("cartao-carregar").style.display = modo === "editar" ? "block" : "none";
+  if(modo === "novo"){
+    idEmEdicao = null;
+    limparFormulario();
+    document.getElementById("form-produto").style.display = "block";
+    document.getElementById("aviso-editando").style.display = "none";
+  } else {
+    // Na aba "Produtos cadastrados", o formulário só aparece depois que a
+    // pessoa escolher um produto pra editar — antes disso, só a lista.
+    idEmEdicao = null;
+    document.getElementById("form-produto").style.display = "none";
+    document.getElementById("aviso-editando").style.display = "none";
+    buscarListaProdutos();
+  }
+  esconderAvisos();
+}
+
+function voltarParaLista(){
+  idEmEdicao = null;
+  limparFormulario();
+  document.getElementById("form-produto").style.display = "none";
+  document.getElementById("aviso-editando").style.display = "none";
+  document.getElementById("cartao-carregar").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function mostrarFormularioEmEdicao(id, nome){
+  document.getElementById("form-produto").style.display = "block";
+  const aviso = document.getElementById("aviso-editando");
+  aviso.style.display = "flex";
+  document.getElementById("texto-editando").textContent = `Editando #${id} · ${nome}`;
+}
+
+function alternar(campo){
+  destaques[campo] = !destaques[campo];
+  document.getElementById("toggle-" + campo).classList.toggle("ativo", destaques[campo]);
+  if(campo === "eKit"){
+    document.getElementById("campo-itens-kit").style.display = destaques.eKit ? "block" : "none";
+  }
+}
+
+function limparFormulario(){
+  document.getElementById("campo-produto").value = "";
+  document.getElementById("campo-marca").value = "Malibu";
+  document.getElementById("campo-categoria").value = "";
+  document.getElementById("campo-categoria-nova-texto").value = "";
+  document.getElementById("campo-categoria-nova").classList.remove("ativo");
+  document.getElementById("campo-preco").value = "";
+  document.getElementById("campo-descricao").value = "";
+  document.getElementById("campo-itens-kit-texto").value = "";
+  destaques = { novo: false, recomendado: false, ofertaEspecial: false, eKit: false };
+  ["novo", "recomendado", "ofertaEspecial", "eKit"].forEach(c =>
+    document.getElementById("toggle-" + c).classList.remove("ativo")
+  );
+  document.getElementById("campo-itens-kit").style.display = "none";
+  for(let n = 1; n <= QUANTIDADE_MAXIMA_FOTOS; n++) limparSlotFoto(n);
+}
+
+function limparSlotFoto(n){
+  fotosSelecionadas[n] = null;
+  const slot = document.getElementById("slot-foto-" + n);
+  slot.innerHTML = `
+    <span class="badge-slot">${n}</span>
+    <span class="rotulo-vazio">Toque para escolher</span>
+    <input type="file" accept="image/*" onchange="escolherFoto(this, ${n})">
+  `;
+}
+
+/* =========================================================
+   CATEGORIA — select alimentado pelas categorias já usadas
+   nos produtos cadastrados, com opção de criar uma nova.
+   ========================================================= */
+function alternarCategoriaNova(){
+  const ehNova = document.getElementById("campo-categoria").value === "__nova__";
+  document.getElementById("campo-categoria-nova").classList.toggle("ativo", ehNova);
+  if(ehNova) document.getElementById("campo-categoria-nova-texto").focus();
+}
+
+function categoriaSelecionada(){
+  const select = document.getElementById("campo-categoria");
+  if(select.value === "__nova__"){
+    return document.getElementById("campo-categoria-nova-texto").value.trim();
+  }
+  return select.value;
+}
+
+function popularSelectCategorias(categoriaAtual){
+  const categorias = [...new Set((todosOsProdutos || []).map(p => (p["Categoria"] || "").trim()).filter(Boolean))].sort();
+  const select = document.getElementById("campo-categoria");
+  const valorAntes = categoriaAtual !== undefined ? categoriaAtual : select.value;
+
+  select.innerHTML = categorias.map(c => `<option value="${escaparHtml(c)}">${escaparHtml(c)}</option>`).join("")
+    + `<option value="__nova__">+ Nova categoria...</option>`;
+
+  if(valorAntes && categorias.includes(valorAntes)){
+    select.value = valorAntes;
+  } else if(valorAntes){
+    // categoria vinda de um produto carregado que ainda não está na lista (ex: acabou de ser criada nesta sessão)
+    const opcaoExtra = document.createElement("option");
+    opcaoExtra.value = valorAntes;
+    opcaoExtra.textContent = valorAntes;
+    select.insertBefore(opcaoExtra, select.lastElementChild);
+    select.value = valorAntes;
+  }
+}
+
+function escaparHtml(texto){
+  const div = document.createElement("div");
+  div.textContent = texto;
+  return div.innerHTML;
+}
+
+/* =========================================================
+   PREÇO — digitação "de trás pra frente" (estilo Pix): os
+   dígitos digitados preenchem os centavos primeiro, e o valor
+   vai crescendo da direita pra esquerda conforme digita.
+   ========================================================= */
+function aplicarMascaraPreco(input){
+  let digitos = input.value.replace(/\D/g, "");
+  digitos = digitos.replace(/^0+(?=\d)/, "");
+  if(digitos === "") digitos = "0";
+  const centavos = parseInt(digitos, 10);
+  input.dataset.centavos = String(centavos);
+  input.value = (centavos / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function valorPrecoComoNumero(input){
+  const centavos = parseInt(input.dataset.centavos || "0", 10);
+  return centavos / 100;
+}
+
+function definirPrecoAPartirDeNumero(input, numero){
+  const centavos = Math.round((Number(numero) || 0) * 100);
+  input.dataset.centavos = String(centavos);
+  input.value = (centavos / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+/* =========================================================
+   LISTA DE PRODUTOS CADASTRADOS (filtros + busca + seleção)
+   ========================================================= */
+async function buscarListaProdutos(forcarNovaBusca){
+  if(todosOsProdutos && !forcarNovaBusca){
+    renderizarListaProdutos();
+    return;
+  }
+  if(!URL_APPS_SCRIPT) return;
+
+  document.getElementById("lista-produtos").innerHTML = `<div class="sem-resultado-lista">Carregando produtos...</div>`;
+  try{
+    const resposta = await fetch(`${URL_APPS_SCRIPT}?listar=1`);
+    const dados = await resposta.json();
+    if(!dados.ok){
+      document.getElementById("lista-produtos").innerHTML = `<div class="sem-resultado-lista">${escaparHtml(dados.erro || "Não consegui carregar a lista.")}</div>`;
+      return;
+    }
+    todosOsProdutos = dados.produtos; // já vem ordenado por ID pelo script
+    popularFiltrosLista();
+    popularSelectCategorias();
+    renderizarListaProdutos();
+  }catch(erro){
+    document.getElementById("lista-produtos").innerHTML = `<div class="sem-resultado-lista">Não consegui falar com o Google Apps Script.</div>`;
+  }
+}
+
+function popularFiltrosLista(){
+  const marcas = [...new Set(todosOsProdutos.map(p => (p["Marca"] || "").trim()).filter(Boolean))].sort();
+  const categorias = [...new Set(todosOsProdutos.map(p => (p["Categoria"] || "").trim()).filter(Boolean))].sort();
+
+  const selectMarca = document.getElementById("filtro-marca-lista");
+  const valorMarcaAntes = selectMarca.value;
+  selectMarca.innerHTML = `<option value="">Todas as marcas</option>` +
+    marcas.map(m => `<option value="${escaparHtml(m)}">${escaparHtml(m)}</option>`).join("");
+  selectMarca.value = marcas.includes(valorMarcaAntes) ? valorMarcaAntes : "";
+
+  const selectCategoria = document.getElementById("filtro-categoria-lista");
+  const valorCategoriaAntes = selectCategoria.value;
+  selectCategoria.innerHTML = `<option value="">Todas as categorias</option>` +
+    categorias.map(c => `<option value="${escaparHtml(c)}">${escaparHtml(c)}</option>`).join("");
+  selectCategoria.value = categorias.includes(valorCategoriaAntes) ? valorCategoriaAntes : "";
+}
+
+function renderizarListaProdutos(){
+  if(!todosOsProdutos) return;
+
+  const busca = document.getElementById("filtro-busca-lista").value.trim().toLowerCase();
+  const marca = document.getElementById("filtro-marca-lista").value;
+  const categoria = document.getElementById("filtro-categoria-lista").value;
+
+  const filtrados = todosOsProdutos
+    .filter(p => !busca || String(p["Produto"] || "").toLowerCase().includes(busca))
+    .filter(p => !marca || p["Marca"] === marca)
+    .filter(p => !categoria || p["Categoria"] === categoria)
+    .filter(p => filtroDestaques.size === 0 || [...filtroDestaques].some(chave => produtoTemDestaque(p, chave)))
+    .sort((a, b) => (parseInt(a["ID"], 10) || 0) - (parseInt(b["ID"], 10) || 0));
+
+  document.getElementById("contagem-lista").textContent =
+    `${filtrados.length} produto${filtrados.length === 1 ? "" : "s"}${todosOsProdutos.length !== filtrados.length ? ` de ${todosOsProdutos.length}` : ""}`;
+
+  const el = document.getElementById("lista-produtos");
+  if(filtrados.length === 0){
+    el.innerHTML = `<div class="sem-resultado-lista">Nenhum produto encontrado com esse filtro.</div>`;
+    return;
+  }
+
+  const ROTULO_BADGE = { novo: "Novo", recomendado: "Top", ofertaEspecial: "Oferta", eKit: "Kit" };
+
+  el.innerHTML = filtrados.map(p => {
+    const foto = p["Imagem (URL)"];
+    const preco = Number(p["Preço (R$)"]) || 0;
+    const badges = Object.keys(ROTULO_BADGE)
+      .filter(chave => produtoTemDestaque(p, chave))
+      .map(chave => `<span class="badge-destaque">${ROTULO_BADGE[chave]}</span>`)
+      .join("");
+    return `
+      <div class="item-lista-produto" onclick="selecionarProdutoDaLista('${String(p["ID"]).replace(/'/g, "\\'")}')">
+        <div class="miniatura">${foto ? `<img src="${foto}" alt="">` : "sem foto"}</div>
+        <div class="info-item">
+          <div class="nome-item">${escaparHtml(p["Produto"] || "")}</div>
+          <div class="meta-item">#${escaparHtml(String(p["ID"]))} · ${escaparHtml(p["Marca"] || "—")} · ${escaparHtml(p["Categoria"] || "—")}</div>
+          ${badges ? `<div class="badges-item">${badges}</div>` : ""}
+        </div>
+        <div class="lado-direito">
+          <div class="preco-item">${preco.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</div>
+          <span class="seta-item">›</span>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function selecionarProdutoDaLista(id){
+  const produto = (todosOsProdutos || []).find(p => String(p["ID"]) === String(id));
+  if(!produto){ mostrarAviso("erro", "Não achei esse produto na lista carregada."); return; }
+  preencherFormulario(produto);
+  mostrarFormularioEmEdicao(produto["ID"], produto["Produto"]);
+  document.getElementById("aviso-editando").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function carregarProduto(){
+  const id = document.getElementById("campo-id-carregar").value.trim();
+  if(!id){ mostrarAviso("erro", "Digite o ID do produto que você quer editar."); return; }
+  if(!URL_APPS_SCRIPT){ mostrarAviso("erro", "O painel ainda não está conectado ao Google Apps Script."); return; }
+
+  const btn = document.getElementById("btn-carregar");
+  btn.disabled = true; btn.textContent = "Carregando...";
+
+  try{
+    const resposta = await fetch(`${URL_APPS_SCRIPT}?id=${encodeURIComponent(id)}`);
+    const dados = await resposta.json();
+    if(!dados.ok){ mostrarAviso("erro", dados.erro || "Não consegui carregar esse produto."); return; }
+
+    preencherFormulario(dados.produto);
+    mostrarFormularioEmEdicao(dados.produto["ID"], dados.produto["Produto"]);
+    document.getElementById("aviso-editando").scrollIntoView({ behavior: "smooth", block: "start" });
+  }catch(erro){
+    mostrarAviso("erro", "Não consegui falar com o Google Apps Script. Confira sua internet e se o link está certo.");
+  }finally{
+    btn.disabled = false; btn.textContent = "Carregar";
+  }
+}
+
+// Preenche o formulário inteiro a partir de um objeto de produto (vindo tanto
+// do clique na lista quanto do "Ir direto pro ID") — mesma lógica pros dois casos.
+function preencherFormulario(p){
+  idEmEdicao = String(p["ID"]);
+  document.getElementById("campo-produto").value = p["Produto"] || "";
+  document.getElementById("campo-marca").value = p["Marca"] || "Malibu";
+  popularSelectCategorias((p["Categoria"] || "").trim());
+  document.getElementById("campo-categoria-nova").classList.remove("ativo");
+  definirPrecoAPartirDeNumero(document.getElementById("campo-preco"), p["Preço (R$)"]);
+  document.getElementById("campo-descricao").value = p["Descrição"] || "";
+  document.getElementById("campo-itens-kit-texto").value = p["Itens do Kit"] || "";
+
+  destaques.novo = String(p["Novo?"]).trim().toLowerCase() === "sim";
+  destaques.recomendado = String(p["Recomendado?"]).trim().toLowerCase() === "sim";
+  destaques.ofertaEspecial = String(p["Oferta Especial?"]).trim().toLowerCase() === "sim";
+  destaques.eKit = String(p["É Kit?"]).trim().toLowerCase() === "sim";
+  ["novo", "recomendado", "ofertaEspecial", "eKit"].forEach(c =>
+    document.getElementById("toggle-" + c).classList.toggle("ativo", destaques[c])
+  );
+  document.getElementById("campo-itens-kit").style.display = destaques.eKit ? "block" : "none";
+
+  for(let n = 1; n <= QUANTIDADE_MAXIMA_FOTOS; n++){
+    const chaveColuna = "Imagem" + (n === 1 ? "" : " " + n) + " (URL)";
+    const url = p[chaveColuna];
+    const slot = document.getElementById("slot-foto-" + n);
+    if(url){
+      slot.innerHTML = `
+        <span class="badge-slot">${n}</span>
+        <img src="${url}" alt="">
+        <button type="button" class="btn-remover-foto" onclick="event.stopPropagation(); limparSlotFoto(${n})">×</button>
+        <input type="file" accept="image/*" onchange="escolherFoto(this, ${n})">
+      `;
+    } else {
+      limparSlotFoto(n);
+    }
+  }
+}
+
+// Converte a foto pra JPEG (85% de qualidade) e redimensiona pro tamanho
+// máximo definido acima, direto no navegador, antes de guardar em memória
+// pra enviar — assim quem está cadastrando não precisa editar a foto antes.
+// JPEG nessa qualidade fica visualmente idêntico ao PNG pra fotos de produto,
+// mas com um arquivo bem mais leve (PNG é "sem perdas" e não comprime bem
+// fotografias — só vale a pena pra imagens com transparência, tipo logos).
+//
+// Fotos em HEIC (padrão do iPhone) passam primeiro pela biblioteca heic2any,
+// que converte pra JPEG antes de seguir pro mesmo processamento — sem isso,
+// só o Safari sabe abrir HEIC sozinho; no Chrome/Android a foto falharia.
+function pareceHeic(arquivo){
+  const tipo = (arquivo.type || "").toLowerCase();
+  const nome = (arquivo.name || "").toLowerCase();
+  return tipo === "image/heic" || tipo === "image/heif" || nome.endsWith(".heic") || nome.endsWith(".heif");
+}
+
+async function escolherFoto(input, n){
+  const arquivoOriginal = input.files[0];
+  if(!arquivoOriginal) return;
+
+  const restaurarSlotVazio = () => limparSlotFoto(n);
+  let arquivo = arquivoOriginal;
+
+  if(pareceHeic(arquivoOriginal)){
+    if(typeof heic2any === "undefined"){
+      mostrarAviso("erro", `A foto ${n} está em formato HEIC, mas a ferramenta de conversão não carregou (verifique sua internet e recarregue a página). Como alternativa, tire a foto de novo com o formato "Mais compatível" (Ajustes > Câmera > Formatos, no iPhone).`);
+      restaurarSlotVazio();
+      return;
+    }
+    const slot = document.getElementById("slot-foto-" + n);
+    slot.querySelector(".rotulo-vazio") && (slot.querySelector(".rotulo-vazio").textContent = "Convertendo HEIC...");
+    try{
+      arquivo = await heic2any({ blob: arquivoOriginal, toType: "image/jpeg", quality: QUALIDADE_JPEG });
+    }catch(erro){
+      mostrarAviso("erro", `Não consegui converter a foto ${n} (formato HEIC). Tenta tirar a foto de novo com o formato "Mais compatível" (Ajustes > Câmera > Formatos, no iPhone).`);
+      restaurarSlotVazio();
+      return;
+    }
+  }
+
+  processarArquivoDeFoto(arquivo, n, restaurarSlotVazio);
+}
+
+function processarArquivoDeFoto(arquivo, n, restaurarSlotVazio){
+  const leitor = new FileReader();
+  leitor.onerror = () => {
+    mostrarAviso("erro", `Não consegui ler o arquivo da foto ${n}. Tenta escolher de novo.`);
+    restaurarSlotVazio();
+  };
+  leitor.onload = (ev) => {
+    const img = new Image();
+    img.onerror = () => {
+      mostrarAviso("erro", `A foto ${n} não pôde ser processada. Tenta escolher outro arquivo.`);
+      restaurarSlotVazio();
+    };
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let { width, height } = img;
+      if(width > TAMANHO_MAXIMO_FOTO_PX || height > TAMANHO_MAXIMO_FOTO_PX){
+        const escala = TAMANHO_MAXIMO_FOTO_PX / Math.max(width, height);
+        width = Math.round(width * escala);
+        height = Math.round(height * escala);
+      }
+      canvas.width = width; canvas.height = height;
+      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL("image/jpeg", QUALIDADE_JPEG);
+      fotosSelecionadas[n] = { base64: dataUrl, tipo: "image/jpeg" };
+
+      const slot = document.getElementById("slot-foto-" + n);
+      slot.innerHTML = `
+        <span class="badge-slot">${n}</span>
+        <img src="${dataUrl}" alt="">
+        <button type="button" class="btn-remover-foto" onclick="event.stopPropagation(); limparSlotFoto(${n})">×</button>
+        <input type="file" accept="image/*" onchange="escolherFoto(this, ${n})">
+      `;
+    };
+    img.src = ev.target.result;
+  };
+  leitor.readAsDataURL(arquivo);
+}
+
+async function salvarProduto(){
+  esconderAvisos();
+
+  if(!URL_APPS_SCRIPT){
+    mostrarAviso("erro", "O painel ainda não está conectado ao Google Apps Script.");
+    return;
+  }
+  const produto = document.getElementById("campo-produto").value.trim();
+  const categoria = categoriaSelecionada();
+  const campoPreco = document.getElementById("campo-preco");
+  const preco = valorPrecoComoNumero(campoPreco);
+  const senha = document.getElementById("campo-senha").value;
+
+  if(!produto || !categoria || !preco){
+    mostrarAviso("erro", "Preencha ao menos nome, categoria e preço.");
+    return;
+  }
+  if(!senha){
+    mostrarAviso("erro", "Digite a senha do painel.");
+    return;
+  }
+
+  const payload = {
+    senha,
+    id: idEmEdicao,
+    produto,
+    marca: document.getElementById("campo-marca").value,
+    categoria,
+    preco,
+    descricao: document.getElementById("campo-descricao").value.trim(),
+    novo: destaques.novo,
+    recomendado: destaques.recomendado,
+    ofertaEspecial: destaques.ofertaEspecial,
+    eKit: destaques.eKit,
+    itensKit: destaques.eKit ? document.getElementById("campo-itens-kit-texto").value.trim() : "",
+    imagens: Array.from({ length: QUANTIDADE_MAXIMA_FOTOS }, (_, i) => fotosSelecionadas[i + 1] || null),
+  };
+
+  if(document.getElementById("campo-lembrar-senha").checked){
+    try{ localStorage.setItem("renata_almeida_admin_senha", senha); }catch(e){}
+  }
+
+  const btn = document.getElementById("btn-salvar");
+  btn.disabled = true;
+  btn.innerHTML = `<span class="icone-spin"></span> Salvando...`;
+
+  try{
+    // Content-Type "text/plain" de propósito: evita que o navegador dispare
+    // uma requisição de "preflight" (OPTIONS) antes do POST, que o Google
+    // Apps Script não responde — o script ainda lê e interpreta como JSON
+    // normalmente (application/json faria a mesma coisa dar erro de CORS).
+    const resposta = await fetch(URL_APPS_SCRIPT, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload),
+    });
+    const dados = await resposta.json();
+
+    if(!dados.ok){
+      mostrarAviso("erro", dados.erro || "Não consegui salvar. Tenta de novo em alguns segundos.");
+      return;
+    }
+
+    mostrarAviso("sucesso", `Produto #${dados.id} salvo! Pode levar alguns minutinhos pra aparecer no site (o Google demora um pouco pra atualizar o link publicado).`);
+    idEmEdicao = null;
+    limparFormulario();
+    document.getElementById("campo-id-carregar").value = "";
+    definirModo("novo");
+    buscarListaProdutos(true); // atualiza o cache da lista com o produto novo/editado
+  }catch(erro){
+    mostrarAviso("erro", "Não consegui falar com o Google Apps Script. Confira sua internet e se o link em URL_APPS_SCRIPT está certo.");
+  }finally{
+    btn.disabled = false;
+    btn.textContent = "Salvar produto";
+  }
+}
+
+// Preenche a senha automaticamente se a pessoa marcou "lembrar" antes,
+// e já busca a lista de produtos (alimenta o select de categorias mesmo
+// em "Novo produto", sem precisar entrar na aba de produtos cadastrados).
+(function(){
+  try{
+    const salva = localStorage.getItem("renata_almeida_admin_senha");
+    if(salva){
+      document.getElementById("campo-senha").value = salva;
+      document.getElementById("campo-lembrar-senha").checked = true;
+    }
+  }catch(e){}
+  document.getElementById("form-produto").style.display = "block"; // estado inicial: "Novo produto"
+  buscarListaProdutos(); // já deixa o select de categorias pronto, mesmo sem entrar na aba de lista
+})();
+</script>
+</body>
+</html>
