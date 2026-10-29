@@ -423,9 +423,13 @@ async function chamarScript(dados){
   if(!d.ok) throw Object.assign(new Error(d.erro || "Falha"), { doScript: true, codigo: d.codigo });
   return d;
 }
-async function carregarTudo(){
-  const r = await buscarScript(`${URL_APPS_SCRIPT}?listar=1&t=${Date.now()}`, { cache: "no-store" });
-  const d = await lerResposta(r);
+// "dados" = a lista que o Apps Script já devolve depois de salvar (sem ela, busca de novo).
+async function carregarTudo(dados){
+  let d = dados;
+  if(!d){
+    const r = await buscarScript(`${URL_APPS_SCRIPT}?listar=1&t=${Date.now()}`, { cache: "no-store" });
+    d = await lerResposta(r);
+  }
   if(!d.ok) throw Object.assign(new Error(d.erro || "Falha"), { doScript: true });
   if(!Array.isArray(d.opcoes)) throw Object.assign(new Error("O Apps Script ainda é o antigo. Cole o código novo (Codigo.gs) e publique uma nova versão."), { doScript: true });
   produtos = d.produtos || [];
@@ -458,19 +462,19 @@ async function enviarEntrar(){
   ocupado(btn, "Entrando...");
   try{
     senha = s;
-    await chamarScript({ acao: "conferir" });
+    const rc = await chamarScript({ acao: "conferir" });
     try{ if($("lembrar").checked) localStorage.setItem(CHAVE_SENHA, s); else localStorage.removeItem(CHAVE_SENHA); }catch(e){}
     $("conta-senha").value = "";
-    await abrirLista();
+    await abrirLista(rc.dados);
   }catch(e){
     senha = "";
     mostrarAviso("erro", e.codigo === "senha" ? "Senha incorreta." : e.doScript ? e.message : "Não consegui falar com a planilha. Confira sua internet e tente de novo.");
   }finally{ livre(btn); }
 }
-async function abrirLista(){
+async function abrirLista(dados){
   mostrarTela("lista");
   $("lista").innerHTML = `<div class="vazio">Carregando produtos...</div>`;
-  try{ await carregarTudo(); renderizarLista(); }
+  try{ await carregarTudo(dados); renderizarLista(); }
   catch(e){ $("lista").innerHTML = ""; tratarErro(e, "Não consegui buscar os produtos."); }
 }
 
@@ -661,8 +665,8 @@ async function mudarEncomenda(btn, situacao){
   const itens = JSON.parse(btn.dataset.alvo);
   ocupado(btn, "Salvando...");
   try{
-    await chamarScript({ acao: "situacaoEncomenda", situacao, itens });
-    await carregarTudo();
+    const r = await chamarScript({ acao: "situacaoEncomenda", situacao, itens });
+    await carregarTudo(r.dados);
     renderizarEncomendas();
     mostrarAviso("sucesso", situacao === "Pendente" ? "Voltou para pendente." : `Marcado como “${situacao}”.`);
   }catch(e){ tratarErro(e, "Não consegui salvar."); livre(btn); }
@@ -729,7 +733,7 @@ async function enviarLista(tipo, operacao, nome, para, btn, semMarca){
   if(btn) ocupado(btn, "Salvando...");
   try{
     const r = await chamarScript({ acao: "lista", tipo, operacao, nome, para, semMarca: !!semMarca });
-    await carregarTudo();
+    await carregarTudo(r.dados);
     acaoLista = null;
     if(operacao === "criar") $("nova-" + tipo).value = "";
     renderizarListas();
@@ -915,7 +919,7 @@ async function salvarProduto(){
   ocupado(btn, temFotoNova ? "Enviando fotos e salvando..." : "Salvando...");
   try{
     const r = await chamarScript({ acao: "salvar", produto: f, opcoes: ops });
-    await carregarTudo();
+    await carregarTudo(r.dados);
     voltarParaLista();
     mostrarAviso("sucesso", `“${f.nome}” salvo (ID ${r.id}). ${f.noSite ? "No site ele atualiza em alguns minutos." : "Ele não aparece no site (Mostrar no site desligado)."}`, true);
   }catch(e){ tratarErro(e, "Não consegui salvar."); }
@@ -928,8 +932,8 @@ async function mudarSituacao(excluir){
   const btn = excluir ? $("btn-excluir") : $("btn-restaurar");
   ocupado(btn, excluir ? "Excluindo..." : "Restaurando...");
   try{
-    await chamarScript({ acao: excluir ? "excluir" : "restaurar", id: g.id });
-    await carregarTudo();
+    const r = await chamarScript({ acao: excluir ? "excluir" : "restaurar", id: g.id });
+    await carregarTudo(r.dados);
     if(!excluir) filtroAtual = "ativos";
     voltarParaLista();
     mostrarAviso("sucesso", excluir ? `“${g.nome}” foi para os Excluídos e sai do site em alguns minutos.` : `“${g.nome}” foi restaurado.`);
@@ -947,8 +951,8 @@ async function salvarLoja(){
   const btn = $("btn-salvar-loja");
   ocupado(btn, "Salvando...");
   try{
-    await chamarScript({ acao: "loja", whatsapp: zap });
-    await carregarTudo();
+    const r = await chamarScript({ acao: "loja", whatsapp: zap });
+    await carregarTudo(r.dados);
     $("loja-whatsapp").value = whatsappLoja;
     mostrarAviso("sucesso", "WhatsApp salvo. No site ele atualiza em alguns minutos.");
   }catch(e){ tratarErro(e, "Não consegui salvar."); }
