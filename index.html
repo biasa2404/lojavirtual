@@ -1641,6 +1641,9 @@ let NUMERO_WHATSAPP = "5579999253542"; // formato: 55 + DDD + número, só núme
 // ###   COLE O LINK DA PLANILHA AQUI NA LINHA DE BAIXO:    ###
 // ###                                                      ###
 // ############################################################
+// O site lê a planilha pelo Apps Script do painel (a mesma planilha que o painel edita, sem a demora
+// de alguns minutos do "Publicar na Web"). Se o Apps Script falhar, usa o link publicado abaixo.
+const URL_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbwAZHuSA4dlSAq0_wjVGtWd_cjZDv_BPI1TFOKS72VQQib-ZUtgoVPxkQ_94TMhHSKf/exec";
 const URL_PLANILHA_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRxUT4AoPRRt1UiupZjs1VtkS51xxvPOKUlWT2UHXcrGDEkN63k1-wA5szoM958PA/pub?gid=1845901674&single=true&output=csv";
 // ############################################################
 //
@@ -2058,12 +2061,24 @@ async function buscarComTimeout(url, tempoLimiteMs){
   }
 }
 
+// qual = "produtos" ou "opcoes". Devolve algo com .ok e .text() como o fetch.
+async function buscarPlanilha(qual, urlPublicada){
+  if(URL_APPS_SCRIPT){
+    try{
+      const r = await buscarComTimeout(`${URL_APPS_SCRIPT}?csv=${qual}`, 8000);
+      const texto = r.ok ? await r.text() : "";
+      if(texto && !/^\s*[{<]/.test(texto)) return { ok: true, text: async () => texto };
+    }catch(e){ console.warn("Apps Script indisponível; usando a planilha publicada.", e); }
+  }
+  return buscarComTimeout(urlPublicada, 8000);
+}
+
 const ATRIBUTOS_VARIACAO = ["Volume", "Fragrância"]; // ordem de exibição quando o produto não diz outra
 
 async function buscarCombinacoesDaPlanilha(){
   if(!URL_PLANILHA_VARIACOES_CSV) return {};
   try{
-    const resposta = await buscarComTimeout(URL_PLANILHA_VARIACOES_CSV, 8000);
+    const resposta = await buscarPlanilha("opcoes", URL_PLANILHA_VARIACOES_CSV);
     if(!resposta.ok) throw new Error("Falha ao buscar combinações");
     const texto = await resposta.text();
     await garantirListaDeImagens();
@@ -2220,7 +2235,7 @@ async function carregarProdutosDaPlanilha(){
 
   try{
     const [respostaCatalogo, combinacoesPorProduto, , produtosDoSupabase] = await Promise.all([
-      buscarComTimeout(URL_PLANILHA_CSV, 8000).catch(e => { console.warn("Planilha indisponível.", e); return null; }),
+      buscarPlanilha("produtos", URL_PLANILHA_CSV).catch(e => { console.warn("Planilha indisponível.", e); return null; }),
       buscarCombinacoesDaPlanilha(),
       garantirListaDeImagens(),
       buscarCatalogoDoSupabase(),
@@ -3319,7 +3334,6 @@ function gerarIdDeData(data){
 }
 
 // Itens esgotados (encomenda) vão também para a aba "Encomendas" da planilha, pelo Apps Script do painel.
-const URL_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbwAZHuSA4dlSAq0_wjVGtWd_cjZDv_BPI1TFOKS72VQQib-ZUtgoVPxkQ_94TMhHSKf/exec";
 let pedidoEmEnvio = "";
 function anotarEncomendas(idPedido){
   const itens = Object.values(carrinho).filter(i => i.encomenda).map(i => ({ id: i.idProduto, nome: i.nome, qtd: i.qtd }));
