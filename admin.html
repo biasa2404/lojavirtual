@@ -125,6 +125,14 @@ main{max-width:960px;margin:0 auto;padding:18px 16px 120px}
 .grade-fotos{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px}
 .foto{position:relative;aspect-ratio:2/3;border-radius:10px;overflow:hidden;background:var(--bege);border:1px solid var(--linha)}
 .foto img{width:100%;height:100%;object-fit:cover;display:block}
+.foto img{cursor:zoom-in}
+.ampliada{position:fixed;inset:0;z-index:100;background:#0f0e0ce8;display:flex;align-items:center;justify-content:center;padding:16px}
+.ampliada img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;box-shadow:0 10px 40px #0008;cursor:zoom-out}
+.ampliada button{position:absolute;width:44px;height:44px;border-radius:50%;background:#fffffff0;font-size:24px;font-weight:700;color:#171717;box-shadow:0 1px 6px #0004}
+.ampliada .fechar-amp{top:14px;right:14px}
+.ampliada .ant{left:12px;top:50%;transform:translateY(-50%)}
+.ampliada .prox{right:12px;top:50%;transform:translateY(-50%)}
+.ampliada .cont{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:#fff;font-size:13px;font-weight:600}
 .foto .num{position:absolute;top:6px;left:6px;background:#171717cc;color:#fff;font-size:10px;font-weight:700;border-radius:999px;padding:1px 7px}
 .foto .acoes{position:absolute;bottom:6px;right:6px;display:flex;gap:4px}
 .foto .acoes button{width:30px;height:30px;border-radius:50%;background:#fffffff0;font-size:16px;font-weight:700;box-shadow:0 1px 4px #0003}
@@ -506,6 +514,30 @@ function linkDaFoto(foto){
 function htmlImagem(foto, cls){
   return `<img class="${cls || ""}" src="${escaparHtml(linkDaFoto(foto))}" alt="" loading="lazy" onerror="trocarExtensao(this)">`;
 }
+// Foto grande ao tocar numa foto do produto (setas passam entre as fotos; Esc ou toque fecha).
+let fotoAmpliada = -1;
+function ampliarFoto(i){
+  fotoAmpliada = i;
+  let el = $("foto-ampliada");
+  if(!el){
+    el = document.createElement("div"); el.id = "foto-ampliada"; el.className = "ampliada";
+    el.onclick = e => { if(e.target === el || e.target.tagName === "IMG") fecharFotoAmpliada(); };
+    document.body.appendChild(el);
+  }
+  const n = fotosEmEdicao.length, mais = n > 1;
+  el.innerHTML = `${htmlImagem(fotosEmEdicao[i])}<button class="fechar-amp" aria-label="Fechar" onclick="fecharFotoAmpliada()">×</button>
+    ${mais ? `<button class="ant" aria-label="Foto anterior" onclick="ampliarFoto(${(i - 1 + n) % n})">‹</button><button class="prox" aria-label="Próxima foto" onclick="ampliarFoto(${(i + 1) % n})">›</button><span class="cont">${i + 1} de ${n}</span>` : ""}`;
+  el.querySelector("img").loading = "eager";
+  el.hidden = false;
+}
+function fecharFotoAmpliada(){ fotoAmpliada = -1; const el = $("foto-ampliada"); if(el) el.hidden = true; }
+document.addEventListener("keydown", e => {
+  if(fotoAmpliada < 0) return;
+  const n = fotosEmEdicao.length;
+  if(e.key === "Escape") fecharFotoAmpliada();
+  else if(e.key === "ArrowRight" && n > 1) ampliarFoto((fotoAmpliada + 1) % n);
+  else if(e.key === "ArrowLeft" && n > 1) ampliarFoto((fotoAmpliada - 1 + n) % n);
+});
 function trocarExtensao(img){
   const tentativas = [".jpg", ".png", ".jpeg", ".webp", ".JPG", ".PNG"];
   const atual = img.src.match(/\.(jpg|png|jpeg|webp|JPG|PNG)$/);
@@ -747,10 +779,10 @@ function voltarParaLista(){ grupoEmEdicao = null; mostrarTela("lista"); renderiz
 
 function renderizarFotos(){
   $("grade-fotos").innerHTML = fotosEmEdicao.map((f, i) => `
-    <div class="foto">${htmlImagem(f)}<span class="num">${i === 0 ? "Capa" : i + 1}</span>
+    <div class="foto" onclick="ampliarFoto(${i})">${htmlImagem(f)}<span class="num">${i === 0 ? "Capa" : i + 1}</span>
       <div class="acoes">
-        ${i > 0 ? `<button type="button" title="Mover para a esquerda" aria-label="Mover foto para a esquerda" onclick="moverFoto(${i}, -1)">‹</button>` : ""}
-        <button type="button" title="Tirar foto" aria-label="Tirar foto ${i + 1}" onclick="removerFoto(${i})">×</button>
+        ${i > 0 ? `<button type="button" title="Mover para a esquerda" aria-label="Mover foto para a esquerda" onclick="event.stopPropagation(); moverFoto(${i}, -1)">‹</button>` : ""}
+        <button type="button" title="Tirar foto" aria-label="Tirar foto ${i + 1}" onclick="event.stopPropagation(); removerFoto(${i})">×</button>
       </div>
     </div>`).join("") + (fotosEmEdicao.length < MAXIMO_FOTOS ? `
     <label class="add-foto" id="btn-fotos"><span class="mais">+</span><span id="texto-add-foto">Adicionar fotos</span>
