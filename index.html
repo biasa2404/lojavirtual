@@ -1341,6 +1341,32 @@ header.top::after{height:2px!important;background:var(--champagne)!important}
 .nota-encomenda{flex-basis:100%;font-size:11px;color:var(--champagne-texto,#93692F);margin-top:8px;text-align:center}
 #rodape-produto-modal{flex-wrap:wrap}
 .item-encomenda{display:inline-block;margin-top:4px;font-size:10px;font-weight:600;color:var(--champagne-texto,#93692F);border:1px dashed currentColor;border-radius:999px;padding:1px 8px}
+
+/* 29/10: celular mais enxuto — produtos aparecem mais cedo; "Recomendados" inteiro */
+@media(max-width:767px){
+  .commerce-hero{height:auto!important;min-height:0!important}
+  .commerce-hero .hero-inner{padding:18px 0 20px!important}
+  .commerce-hero h1{font-size:28px!important;line-height:1.1!important;margin:8px 0!important;max-width:none!important}
+  .commerce-hero p{font-size:12px!important;line-height:1.6!important;max-width:320px!important;margin:0!important}
+  .commerce-hero .hero-action{display:none!important}
+  .commerce-flow{display:none!important}
+  main{padding-top:18px!important}
+  .catalog-top{margin-bottom:10px!important}
+  .catalog-top .section-eyebrow{display:none!important}
+  .titulo-secao{font-size:24px!important;margin:0 0 2px!important}
+  .barra-controles{padding:12px 0!important;gap:10px!important;margin-bottom:14px!important}
+  .linha-busca-ordenar{gap:8px!important}
+  .campo-busca input{padding-top:10px!important;padding-bottom:10px!important}
+  .campo-ordenar{max-width:none!important;width:auto!important;min-width:0!important;flex-shrink:0;font-weight:600!important;letter-spacing:0!important;padding-right:30px!important}
+  .linha-filtros{gap:8px!important;flex-wrap:wrap!important;align-items:center}
+  .chips-categoria{flex-wrap:nowrap!important;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .chips-categoria::-webkit-scrollbar{display:none}
+  .chips-marca{flex:1 1 0!important;min-width:0}
+  .controles-visualizacao{flex-shrink:0;margin-left:auto}
+  .chip{min-height:34px!important;padding:6px 12px!important;font-size:12px!important}
+  .results-caption{margin-bottom:12px!important}
+  .controles-visualizacao .grupo-toggle:last-child{display:none!important}
+}
 </style></head>
 <body><a class="skip" href="#catalog-heading">Pular para os produtos</a>
 
@@ -1371,7 +1397,7 @@ header.top::after{height:2px!important;background:var(--champagne)!important}
       <div class="linha-busca-ordenar">
         <div class="campo-busca">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3" stroke-linecap="round"/></svg>
-          <input type="text" id="campo-busca-input" placeholder="Buscar produto..." oninput="definirBusca(this.value)">
+          <input type="text" id="campo-busca-input" placeholder="Buscar" oninput="definirBusca(this.value)">
         </div>
         <select class="campo-ordenar" id="campo-ordenar" onchange="definirOrdenacao(this.value)"></select>
       </div>
