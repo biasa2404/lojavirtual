@@ -1321,6 +1321,26 @@ header.top::after{height:2px!important;background:var(--champagne)!important}
 }
 @media(max-width:380px){.marca-nome{font-size:11px;letter-spacing:.06em}.marca-sub{display:none}}
 
+
+/* 29/10: cards mais compactos (produto e preço inteiros na tela) e "sob encomenda" */
+.product-copy{padding:14px 15px 15px}
+.product-meta{margin-bottom:4px}
+.nome-produto{font-size:13px!important;line-height:1.4;min-height:36px;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.preco-produto{font-size:20px!important;margin-bottom:2px}
+.product-note{margin-bottom:10px}
+.btn-add{min-height:38px;padding:8px 11px}
+@media(min-width:1101px){.grid-produtos,.grid-produtos.tam-grande{grid-template-columns:repeat(5,minmax(0,1fr));gap:20px 16px}.grid-produtos.tam-pequeno{grid-template-columns:repeat(6,minmax(0,1fr));gap:16px 12px}}
+@media(min-width:1600px){.grid-produtos,.grid-produtos.tam-grande{grid-template-columns:repeat(6,minmax(0,1fr))}.grid-produtos.tam-pequeno{grid-template-columns:repeat(7,minmax(0,1fr))}}
+@media(min-width:768px) and (max-width:1100px){.grid-produtos,.grid-produtos.tam-grande{grid-template-columns:repeat(4,minmax(0,1fr));gap:18px 14px}.grid-produtos.tam-pequeno{grid-template-columns:repeat(5,minmax(0,1fr))}}
+@media(max-width:767px){.product-copy{padding:11px 11px 12px}.nome-produto{font-size:12px!important;min-height:34px;margin-bottom:5px}.preco-produto{font-size:18px!important}.product-note{margin-bottom:9px}.btn-add{min-height:36px}}
+.nota-esgotado{color:var(--champagne-texto,#93692F)!important;font-weight:600}
+.btn-add.btn-encomendar{background:transparent!important;color:var(--texto)!important;border:1px solid var(--texto)!important}
+.btn-add.btn-encomendar:hover{background:var(--grafite-3)!important}
+.opcoes-variacao .opcao-pagamento.encomenda{border-style:dashed}
+.opcoes-variacao .opcao-pagamento.encomenda:not(.selecionada){color:var(--texto-suave)}
+.nota-encomenda{flex-basis:100%;font-size:11px;color:var(--champagne-texto,#93692F);margin-top:8px;text-align:center}
+#rodape-produto-modal{flex-wrap:wrap}
+.item-encomenda{display:inline-block;margin-top:4px;font-size:10px;font-weight:600;color:var(--champagne-texto,#93692F);border:1px dashed currentColor;border-radius:999px;padding:1px 8px}
 </style></head>
 <body><a class="skip" href="#catalog-heading">Pular para os produtos</a>
 
@@ -2222,8 +2242,8 @@ async function carregarProdutosDaPlanilha(){
     }
 
     const produtos = produtosDoSupabase.length > 0 ? produtosDoSupabase : linhas.filter(l => /^\d+$/.test((l["id"]||"").trim()))
-      // Situação (coluna do painel): Excluído, Fora do site e Esgotado não aparecem; vazio = Ativo
-      .filter(l => !/^(exclu|fora|esgot)/.test(normalizar(l["situação"] || l["situacao"] || "")))
+      // Situação (coluna do painel): Excluído e Fora do site não aparecem; Esgotado aparece "sob encomenda"; vazio = Ativo
+      .filter(l => !/^(exclu|fora)/.test(normalizar(l["situação"] || l["situacao"] || "")))
       .map((l, i) => {
       const id = parseInt(l["id"], 10) || (i + 1);
       const imagens = [
@@ -2251,6 +2271,8 @@ async function carregarProdutosDaPlanilha(){
         imagens,
         imagem: imagens[0] || "", // mantido por compatibilidade com o cache antigo
         combinacoes: combinacoesPorProduto[id] || null,
+        esgotado: /^esgot/.test(normalizar(l["situação"] || l["situacao"] || "")) ||
+          (!!combinacoesPorProduto[id] && combinacoesPorProduto[id].every(c => c.disponivel === false)),
       };
     }).filter(p => p.nome);
 
@@ -2332,7 +2354,7 @@ function valoresDoTipo(p, tipo){
 // (Cor → Tamanho → Voltagem): cada tipo só é restringido pelos tipos que vêm ANTES
 // dele nessa ordem — nunca pelos que vêm depois. Assim, a Cor nunca fica bloqueada
 // por causa do Tamanho/Voltagem já escolhidos, por exemplo.
-function valorDisponivel(p, tipo, valor, selecaoParcial){
+function valorDisponivel(p, tipo, valor, selecaoParcial, aceitarEsgotado){
   const ordem = ordemTipos(p);
   const indiceTipo = ordem.indexOf(tipo);
   return p.combinacoes.some(c => {
@@ -2342,8 +2364,17 @@ function valorDisponivel(p, tipo, valor, selecaoParcial){
       const escolhido = selecaoParcial[outroTipo];
       if(escolhido && valorCombo(c, outroTipo) !== escolhido) return false;
     }
-    return c.disponivel !== false;
+    return aceitarEsgotado || c.disponivel !== false;
   });
+}
+
+// Esgotado = sob encomenda: o produto todo (Situação Esgotado) ou a opção escolhida.
+function ehEncomenda(p, selecao){
+  if(!p) return false;
+  if(p.esgotado) return true;
+  if(!tiposAplicaveis(p).length) return false;
+  const combo = encontrarCombinacao(p, selecao || {});
+  return !!combo && combo.disponivel === false;
 }
 
 // Acha a linha exata da planilha que corresponde à seleção completa atual
@@ -2391,7 +2422,7 @@ function preselecionarVariacoes(p){
   const selecao = {};
   tiposAplicaveis(p).forEach(tipo => {
     const candidatos = valoresDoTipo(p, tipo);
-    const escolhido = candidatos.find(v => valorDisponivel(p, tipo, v, selecao));
+    const escolhido = candidatos.find(v => valorDisponivel(p, tipo, v, selecao)) || candidatos.find(v => valorDisponivel(p, tipo, v, selecao, true));
     if(escolhido) selecao[tipo] = escolhido;
   });
   return selecao;
@@ -2655,13 +2686,13 @@ function renderVariacoesModal(){
         <div class="titulo-bloco">${tipo}</div>
         <div class="opcoes-variacao">
           ${candidatos.map(valor => {
-            const disponivel = valorDisponivel(p, tipo, valor, selecaoVariacaoAtual);
+            const disponivel = p.esgotado || valorDisponivel(p, tipo, valor, selecaoVariacaoAtual);
             const selecionado = selecaoVariacaoAtual[tipo] === valor;
             const valorEscapado = valor.replace(/'/g, "\\'");
             return `
-              <button class="opcao-pagamento ${selecionado ? 'selecionada' : ''} ${disponivel ? '' : 'indisponivel'}"
-                ${disponivel ? `onclick="escolherVariacao('${tipo}', '${valorEscapado}')"` : 'disabled'}>
-                ${escapeHtml(valor)}${!disponivel ? ' · esgotado' : ''}
+              <button class="opcao-pagamento ${selecionado ? 'selecionada' : ''} ${disponivel ? '' : 'encomenda'}"
+                onclick="escolherVariacao('${tipo}', '${valorEscapado}')">
+                ${escapeHtml(valor)}${!disponivel && !p.esgotado ? ' · encomenda' : ''}
               </button>
             `;
           }).join("")}
@@ -2679,14 +2710,14 @@ function escolherVariacao(tipo, valor){
   tipos.forEach(t => {
     if(t === tipo) return;
     const atual = selecaoVariacaoAtual[t];
-    if(atual && !valorDisponivel(produtoModalAtual, t, atual, selecaoVariacaoAtual)){
+    if(atual && !valorDisponivel(produtoModalAtual, t, atual, selecaoVariacaoAtual, true)){
       delete selecaoVariacaoAtual[t];
     }
   });
   tipos.forEach(t => {
     if(selecaoVariacaoAtual[t]) return;
     const candidatos = valoresDoTipo(produtoModalAtual, t);
-    const escolhido = candidatos.find(v => valorDisponivel(produtoModalAtual, t, v, selecaoVariacaoAtual));
+    const escolhido = candidatos.find(v => valorDisponivel(produtoModalAtual, t, v, selecaoVariacaoAtual)) || candidatos.find(v => valorDisponivel(produtoModalAtual, t, v, selecaoVariacaoAtual, true));
     if(escolhido) selecaoVariacaoAtual[t] = escolhido;
   });
 
@@ -2734,6 +2765,8 @@ function renderRodapeProdutoModal(){
 
   const chave = chaveCarrinho(p.id, p, selecaoVariacaoAtual);
   const qtd = carrinho[chave]?.qtd || 0;
+  const encomenda = ehEncomenda(p, selecaoVariacaoAtual);
+  const nota = encomenda ? `<div class="nota-encomenda">Esgotado no momento. Você pode encomendar: o Studio confirma o prazo pelo WhatsApp.</div>` : "";
 
   if(qtd > 0){
     rodape.innerHTML = `
@@ -2742,12 +2775,12 @@ function renderRodapeProdutoModal(){
         <span class="qtd-valor">${qtd}</span>
         <button class="btn-qtd" onclick="alterarQtdModal(1)">+</button>
       </div>
-      <button class="btn-modal-confirmar" style="text-decoration:none;" onclick="fecharDetalheProduto()">No pedido ✓</button>
-    `;
+      <button class="btn-modal-confirmar" style="text-decoration:none;" onclick="fecharDetalheProduto()">${encomenda ? "Encomendado ✓" : "No pedido ✓"}</button>
+    ` + nota;
   } else {
     rodape.innerHTML = `
-      <button class="btn-modal-confirmar" style="flex:1; text-decoration:none;" onclick="alterarQtdModal(1)">Adicionar ao pedido</button>
-    `;
+      <button class="btn-modal-confirmar" style="flex:1; text-decoration:none;" onclick="alterarQtdModal(1)">${encomenda ? "Encomendar" : "Adicionar ao pedido"}</button>
+    ` + nota;
   }
 }
 
@@ -2767,6 +2800,7 @@ function alterarQtdModal(delta){
       qtd: nova,
       nome: nomeComVariacao(p.nome, p, selecaoVariacaoAtual),
       preco: calcularPrecoComVariacao(p, selecaoVariacaoAtual),
+      encomenda: ehEncomenda(p, selecaoVariacaoAtual),
       imagem: (p.imagens && p.imagens[0]) || p.imagem || "",
     };
   }
@@ -2953,9 +2987,9 @@ function renderCatalogo(){
  const produtos=produtosFiltrados();renderAvisoFiltro(produtos.length,PRODUTOS.length);document.getElementById('result-count').textContent=produtos.length+' '+(produtos.length===1?'produto encontrado':'produtos encontrados');
  semResultado.style.display=produtos.length?'none':'block';
  container.className=(modoVisualizacao==='lista'?'lista-produtos':'grid-produtos')+' tam-'+tamanhoVisualizacao;
- const action=p=>{const qtd=p.combinacoes?0:(carrinho[String(p.id)]?.qtd||0);if(p.combinacoes)return `<button class="btn-add" onclick="abrirDetalheProduto(${p.id})">Escolher opções <span class="plus"><svg class="seta" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg></span></button>`;return qtd?`<div class="controle-qtd"><button class="btn-qtd" aria-label="Diminuir quantidade" onclick="alterarQtd(${p.id},-1)">−</button><span class="qtd-valor">${qtd}</span><button class="btn-qtd" aria-label="Aumentar quantidade" onclick="alterarQtd(${p.id},1)">+</button></div><div class="indicador-carrinho">No seu pedido ✓</div>`:`<button class="btn-add" onclick="alterarQtd(${p.id},1)">Adicionar <span class="plus">+</span></button>`};
+ const action=p=>{const qtd=p.combinacoes?0:(carrinho[String(p.id)]?.qtd||0);if(p.combinacoes)return `<button class="btn-add${p.esgotado?' btn-encomendar':''}" onclick="abrirDetalheProduto(${p.id})">${p.esgotado?'Encomendar':'Escolher opções'} <span class="plus"><svg class="seta" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg></span></button>`;return qtd?`<div class="controle-qtd"><button class="btn-qtd" aria-label="Diminuir quantidade" onclick="alterarQtd(${p.id},-1)">−</button><span class="qtd-valor">${qtd}</span><button class="btn-qtd" aria-label="Aumentar quantidade" onclick="alterarQtd(${p.id},1)">+</button></div><div class="indicador-carrinho">${p.esgotado?'Encomendado ✓':'No seu pedido ✓'}</div>`:`<button class="btn-add${p.esgotado?' btn-encomendar':''}" onclick="alterarQtd(${p.id},1)">${p.esgotado?'Encomendar':'Adicionar'} <span class="plus">+</span></button>`};
  const photo=p=>`<div class="foto-produto${photoClass(p)}" role="button" tabindex="0" aria-label="Ver ${escapeHtml(p.nome)}" onclick="abrirDetalheProduto(${p.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirDetalheProduto(${p.id})}">${p.recomendado?'<span class="selo-recomendado">Favorito do Studio</span>':p.novo?'<span class="selo-recomendado selo-novo">Novidade</span>':p.eKit?'<span class="selo-recomendado selo-kit">Kit</span>':''}${p.ofertaEspecial?'<span class="selo-oferta">Oferta especial</span>':''}${blocoFotoProduto(p)}${photoLabels(p)}</div>`;
- container.innerHTML=produtos.map(p=>{const qtd=p.combinacoes?Object.values(carrinho).filter(x=>x.idProduto===p.id).reduce((s,x)=>s+x.qtd,0):(carrinho[String(p.id)]?.qtd||0);const name=`<div class="nome-produto" tabindex="0" role="button" onclick="abrirDetalheProduto(${p.id})" onkeydown="if(event.key==='Enter'){abrirDetalheProduto(${p.id})}">${escapeHtml(p.nome)}</div>`;if(modoVisualizacao==='lista')return `<article class="item-lista ${qtd?'no-carrinho':''}">${photo(p)}<div class="info-produto"><div class="product-meta">${metaProduto(p)}</div>${name}<div class="preco-produto tabular">${formatarPreco(p.preco)}</div>${p.precoVarejo?`<div class="preco-varejo tabular">Varejo ${formatarPreco(p.precoVarejo)}</div>`:''}</div><div class="acao">${action(p)}</div></article>`;const nc=p.combinacoes?new Set(p.combinacoes.map(c=>valorCombo(c,'Cor')).filter(Boolean)).size:0;return `<article class="card-produto ${qtd?'no-carrinho':''}">${photo(p)}<div class="product-copy"><div class="product-meta">${metaProduto(p)}</div>${name}<div class="preco-produto tabular">${formatarPreco(p.preco)}</div>${p.precoVarejo?`<div class="preco-varejo tabular">Varejo ${formatarPreco(p.precoVarejo)}</div>`:''}<div class="product-note">${p.combinacoes?(nc?nc+' cores · ':'')+'Escolha a combinação':p.novo?'Novo no catálogo':'Consulte os detalhes do produto'}</div><div class="product-bottom">${action(p)}</div></div></article>`}).join('');
+ container.innerHTML=produtos.map(p=>{const qtd=p.combinacoes?Object.values(carrinho).filter(x=>x.idProduto===p.id).reduce((s,x)=>s+x.qtd,0):(carrinho[String(p.id)]?.qtd||0);const name=`<div class="nome-produto" tabindex="0" role="button" onclick="abrirDetalheProduto(${p.id})" onkeydown="if(event.key==='Enter'){abrirDetalheProduto(${p.id})}">${escapeHtml(p.nome)}</div>`;if(modoVisualizacao==='lista')return `<article class="item-lista ${qtd?'no-carrinho':''}">${photo(p)}<div class="info-produto"><div class="product-meta">${metaProduto(p)}</div>${name}<div class="preco-produto tabular">${formatarPreco(p.preco)}</div>${p.precoVarejo?`<div class="preco-varejo tabular">Varejo ${formatarPreco(p.precoVarejo)}</div>`:''}</div><div class="acao">${action(p)}</div></article>`;const nc=p.combinacoes?new Set(p.combinacoes.map(c=>valorCombo(c,'Cor')).filter(Boolean)).size:0;return `<article class="card-produto ${qtd?'no-carrinho':''}">${photo(p)}<div class="product-copy"><div class="product-meta">${metaProduto(p)}</div>${name}<div class="preco-produto tabular">${formatarPreco(p.preco)}</div>${p.precoVarejo?`<div class="preco-varejo tabular">Varejo ${formatarPreco(p.precoVarejo)}</div>`:''}<div class="product-note${p.esgotado?' nota-esgotado':''}">${p.esgotado?'Esgotado · sob encomenda':p.combinacoes?(nc?nc+' cores · ':'')+'Escolha a combinação':p.novo?'Novo no catálogo':'Consulte os detalhes do produto'}</div><div class="product-bottom">${action(p)}</div></div></article>`}).join('');
 }
 
 function alterarQtd(chave, delta){
@@ -2975,6 +3009,7 @@ function alterarQtd(chave, delta){
       qtd: nova,
       nome: produto.nome,
       preco: produto.preco,
+      encomenda: !!produto.esgotado,
       imagem: (produto.imagens && produto.imagens[0]) || produto.imagem || "",
     };
   }
@@ -3040,6 +3075,7 @@ function renderCarrinho(){
           <div>
             <div class="item-nome">${escapeHtml(nomeBase)}</div>
             ${variacao ? `<div class="item-variacao">${escapeHtml(variacao)}</div>` : ""}
+            ${item.encomenda ? `<div class="item-encomenda">Sob encomenda</div>` : ""}
           </div>
           <div class="item-subtotal tabular">${formatarPreco(item.qtd * item.preco)}</div>
         </div>
@@ -3313,8 +3349,9 @@ function montarMensagemWhatsapp(idPedido){
     const cod = codigoDoProgramaNoCarrinho(item, itensChaves.get(item));
     const combo = codigoDoProgramaNoCarrinho(item, itensChaves.get(item), true);
     const nome = (combo && typeof combo === "object" && combo.nomePrograma) || item.nome;
-    msg += `• ${item.qtd}x ${nome}${cod ? ` (cód. ${cod})` : ""} — ${formatarPreco(item.qtd * item.preco)}\n`;
+    msg += `• ${item.qtd}x ${nome}${cod ? ` (cód. ${cod})` : ""}${item.encomenda ? " *(encomenda)*" : ""} — ${formatarPreco(item.qtd * item.preco)}\n`;
   });
+  if(itens.some(i => i.encomenda)) msg += `_Itens de encomenda: aguardo o prazo de chegada._\n`;
   if(forma && forma.acrescimo){
     msg += `\n*Total: ${formatarPreco(totalComAcrescimo())}*`;
     msg += `\nPagamento: ${nomePagamento}${parcelasEscolhidas > 1 ? ` — em ${parcelasEscolhidas}x de ${formatarPreco(valorParcela())}` : " — à vista"}`;
@@ -3340,7 +3377,7 @@ function montarPreviaVisual(idPedido){
   const forma = formaPagamentoAtual();
   const nomePagamento = forma?.noPedido || forma?.nome || "—";
   let linhas = itens.map(item =>
-    `• ${item.qtd}x ${escapeHtml(item.nome)} — ${formatarPreco(item.qtd * item.preco)}`
+    `• ${item.qtd}x ${escapeHtml(item.nome)}${item.encomenda ? " <b>(encomenda)</b>" : ""} — ${formatarPreco(item.qtd * item.preco)}`
   ).join("\n");
   let blocoEntrega = entregaEscolhida === "entregar"
     ? `<b>Entrega</b>\n${escapeHtml(endereco.estadoNome)} · ${escapeHtml(endereco.cidade)}\nBairro: ${escapeHtml(endereco.bairro)}\nRua: ${escapeHtml(endereco.rua)}${endereco.complemento.trim() ? `\nComplemento: ${escapeHtml(endereco.complemento)}` : ""}`
@@ -3537,15 +3574,16 @@ function atualizarCarrinhoComCatalogo(){
     let valido = !!p;
     if(valido && tiposAplicaveis(p).length){
       const combo = encontrarCombinacao(p, selecao);
-      valido = !!(combo && combo.disponivel) && chaveCarrinho(p.id, p, selecao) === chave;
+      valido = !!combo && chaveCarrinho(p.id, p, selecao) === chave;
     } else if(valido && resto){
       valido = false; // tinha variação e o produto não tem mais
     }
     if(!valido){ delete carrinho[chave]; mudou = true; return; }
     const preco = calcularPrecoComVariacao(p, selecao);
     const nome = nomeComVariacao(p.nome, p, selecao);
-    if(carrinho[chave].preco !== preco || carrinho[chave].nome !== nome){
-      carrinho[chave] = { ...carrinho[chave], preco, nome };
+    const encomenda = ehEncomenda(p, selecao);
+    if(carrinho[chave].preco !== preco || carrinho[chave].nome !== nome || !!carrinho[chave].encomenda !== encomenda){
+      carrinho[chave] = { ...carrinho[chave], preco, nome, encomenda };
       mudou = true;
     }
   });

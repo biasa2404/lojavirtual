@@ -337,17 +337,31 @@ function irPara(tela){
 }
 
 // ===================== Apps Script =====================
+// Erros de conexão com o Apps Script: diz o que conferir em vez de só "confira sua internet".
+const AVISO_ACESSO = "O Apps Script não respondeu ao painel. No Apps Script, vá em Implantar › Gerenciar implantações e confira: Executar como \"Eu\" e Quem pode acessar \"Qualquer pessoa\". Se mudar algo, clique em Implantar de novo.";
+async function lerResposta(r){
+  const texto = await r.text();
+  try{ return JSON.parse(texto); }
+  catch(e){
+    const fn = (texto.match(/(?:Script function not found|função de script n[aã]o encontrada)[^<]*/i) || [])[0];
+    throw Object.assign(new Error(fn ? "O código novo não foi salvo antes de implantar (" + fn.trim() + "). Cole o Codigo.gs, salve (Ctrl+S) e implante uma Nova versão." : AVISO_ACESSO), { doScript: true });
+  }
+}
+async function buscarScript(url, opcoes){
+  try{ return await fetch(url, opcoes); }
+  catch(e){ throw Object.assign(new Error(navigator.onLine === false ? "Sem internet. Confira a conexão e tente de novo." : AVISO_ACESSO), { doScript: true }); }
+}
 async function chamarScript(dados){
   // "text/plain" de propósito: com application/json o navegador faz uma consulta antes (preflight)
   // que o Apps Script não responde, e o envio falha.
-  const r = await fetch(URL_APPS_SCRIPT, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(Object.assign({ senha }, dados)) });
-  const d = await r.json();
+  const r = await buscarScript(URL_APPS_SCRIPT, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(Object.assign({ senha }, dados)) });
+  const d = await lerResposta(r);
   if(!d.ok) throw Object.assign(new Error(d.erro || "Falha"), { doScript: true, codigo: d.codigo });
   return d;
 }
 async function carregarTudo(){
-  const r = await fetch(`${URL_APPS_SCRIPT}?listar=1&t=${Date.now()}`, { cache: "no-store" });
-  const d = await r.json();
+  const r = await buscarScript(`${URL_APPS_SCRIPT}?listar=1&t=${Date.now()}`, { cache: "no-store" });
+  const d = await lerResposta(r);
   if(!d.ok) throw Object.assign(new Error(d.erro || "Falha"), { doScript: true });
   if(!Array.isArray(d.opcoes)) throw Object.assign(new Error("O Apps Script ainda é o antigo. Cole o código novo (Codigo.gs) e publique uma nova versão."), { doScript: true });
   produtos = d.produtos || [];
