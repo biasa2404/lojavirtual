@@ -3659,6 +3659,103 @@ carregarProdutosDaPlanilha().then(() => {
 });
 
 configurarAcessibilidadeVisual();
+
+/* =========================================================
+   VOLTAR DO NAVEGADOR E LOGO
+   A seta de voltar fecha o que estiver aberto (foto, produto, prévia) e volta do pedido para o
+   catálogo, sem sair do site. O logo volta para os produtos.
+   ========================================================= */
+(function(){
+  if(!window.history || !history.pushState) return;
+  let ignorarPop = 0;          // voltas que nós mesmos pedimos (ao fechar pelo X ou Esc)
+  let precisaGuarda = true;    // entrada extra para a seta de voltar não sair do site
+  const aberta = id => document.getElementById(id).classList.contains("ativa");
+  const camadas = { zoom: "sobreposicao-zoom", previa: "sobreposicao-previa", produto: "sobreposicao-produto" };
+  // A entrada "guarda" só vale se for criada depois de um toque/clique (regra dos navegadores).
+  function colocarGuarda(){
+    if(!precisaGuarda) return;
+    precisaGuarda = false;
+    history.replaceState({ raiz: true }, "");
+    history.pushState({ tela: etapaVisualAtual || "catalogo" }, "");
+  }
+  ["pointerdown", "keydown"].forEach(t => document.addEventListener(t, colocarGuarda, true));
+
+  const irOriginal = irPara;
+  irPara = function(etapa){
+    const antes = etapaVisualAtual;
+    irOriginal(etapa);
+    if(etapa !== antes && !precisaGuarda) history.pushState({ tela: etapa }, "");
+  };
+  function embrulharCamada(nome, abrirNome, fecharNome){
+    const abrir = window[abrirNome], fechar = window[fecharNome];
+    window[abrirNome] = function(){
+      const jaAberta = aberta(camadas[nome]);
+      const r = abrir.apply(this, arguments);
+      if(!jaAberta && aberta(camadas[nome]) && !precisaGuarda) history.pushState({ tela: etapaVisualAtual, camada: nome }, "");
+      return r;
+    };
+    window[fecharNome] = function(){
+      const estava = aberta(camadas[nome]);
+      const r = fechar.apply(this, arguments);
+      if(estava && history.state && history.state.camada === nome){ ignorarPop++; history.back(); }
+      return r;
+    };
+  }
+  embrulharCamada("produto", "abrirDetalheProduto", "fecharDetalheProduto");
+  embrulharCamada("zoom", "abrirZoomFoto", "fecharZoomFoto");
+  embrulharCamada("previa", "abrirPreviaEnvio", "fecharPreviaEnvio");
+
+  window.addEventListener("popstate", e => {
+    if(ignorarPop > 0){ ignorarPop--; return; }
+    const st = e.state || {};
+    // fecha a camada de cima, sem mexer no histórico de novo
+    for(const nome of ["zoom", "previa", "produto"]){
+      if(aberta(camadas[nome])){
+        document.getElementById(camadas[nome]).classList.remove("ativa");
+        if(typeof atualizarBloqueioDeRolagem === "function") atualizarBloqueioDeRolagem();
+        if(st.camada !== nome) return voltarPara(st);
+        return;
+      }
+    }
+    voltarPara(st);
+  });
+  function voltarPara(st){
+    if(st.raiz){
+      // chegou no começo: fica no catálogo e prepara a guarda de novo para o próximo toque
+      if(etapaVisualAtual !== "catalogo") irOriginal("catalogo");
+      precisaGuarda = true;
+      mostrarAvisoVoltar();
+      return;
+    }
+    const tela = st.tela || "catalogo";
+    if(tela !== etapaVisualAtual) irOriginal(tela);
+  }
+  function mostrarAvisoVoltar(){
+    const t = document.getElementById("sales-toast");
+    if(!t) return;
+    t.textContent = "Você está no catálogo. Para sair, feche a aba.";
+    t.style.display = "block";
+    clearTimeout(mostrarAvisoVoltar.timer);
+    mostrarAvisoVoltar.timer = setTimeout(() => { t.style.display = "none"; }, 2500);
+  }
+
+  // Logo: volta para os produtos (fecha o que estiver aberto)
+  const marca = document.querySelector("header .marca");
+  if(marca){
+    marca.style.cursor = "pointer";
+    marca.setAttribute("role", "link");
+    marca.setAttribute("tabindex", "0");
+    marca.setAttribute("aria-label", "Studio Renata Almeida: voltar para os produtos");
+    const voltarAosProdutos = () => {
+      ["zoom", "previa", "produto"].forEach(n => { if(aberta(camadas[n])) window[{ zoom: "fecharZoomFoto", previa: "fecharPreviaEnvio", produto: "fecharDetalheProduto" }[n]](); });
+      if(etapaVisualAtual !== "catalogo") irPara("catalogo");
+      const alvo = document.getElementById("catalog-heading");
+      if(alvo) alvo.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    marca.addEventListener("click", voltarAosProdutos);
+    marca.addEventListener("keydown", e => { if(e.key === "Enter" || e.key === " "){ e.preventDefault(); voltarAosProdutos(); } });
+  }
+})();
 </script>
 
 </body>
