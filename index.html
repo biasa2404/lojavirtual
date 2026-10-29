@@ -3318,6 +3318,19 @@ function gerarIdDeData(data){
   return `${data.getFullYear()}${pad(data.getMonth() + 1)}${pad(data.getDate())}${pad(data.getHours())}${pad(data.getMinutes())}${pad(data.getSeconds())}`;
 }
 
+// Itens esgotados (encomenda) vão também para a aba "Encomendas" da planilha, pelo Apps Script do painel.
+const URL_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycby5k6xBXK6KkZx9IqwB4C9GzzzHHhGdaGDbvjxfzgZWP9-X68coaSjO1ngRnXpIiyRO/exec";
+let pedidoEmEnvio = "";
+function anotarEncomendas(idPedido){
+  const itens = Object.values(carrinho).filter(i => i.encomenda).map(i => ({ id: i.idProduto, nome: i.nome, qtd: i.qtd }));
+  if(!itens.length || !URL_APPS_SCRIPT || !idPedido) return;
+  const corpo = JSON.stringify({ acao: "encomenda", pedido: idPedido, cliente: nomeCliente.trim(), itens });
+  try{
+    if(navigator.sendBeacon && navigator.sendBeacon(URL_APPS_SCRIPT, new Blob([corpo], { type: "text/plain" }))) return;
+  }catch(e){}
+  fetch(URL_APPS_SCRIPT, { method: "POST", mode: "no-cors", keepalive: true, headers: { "Content-Type": "text/plain" }, body: corpo }).catch(() => {});
+}
+
 function gerarIdPedido(){
   return gerarIdDeData(new Date());
 }
@@ -3396,6 +3409,7 @@ function abrirPreviaEnvio(){
   if(!nomeOk || !pagamentoEscolhido || !entregaEscolhida || !entregaOk) return;
 
   const idPedido = gerarIdPedido();
+  pedidoEmEnvio = idPedido;
   const mensagem = montarMensagemWhatsapp(idPedido);
   const link = `https://wa.me/${NUMERO_WHATSAPP}?text=${encodeURIComponent(mensagem)}`;
   document.getElementById("btn-modal-confirmar").href = link;
@@ -3411,6 +3425,8 @@ function fecharPreviaEnvio(){
 }
 
 function marcarPedidoEnviado(){
+  anotarEncomendas(pedidoEmEnvio);
+  pedidoEmEnvio = "";
   fecharPreviaEnvio();
   pedidoRecemEnviado = true;
   document.getElementById("aviso-pedido-enviado").style.display = "block";

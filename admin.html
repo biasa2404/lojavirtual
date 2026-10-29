@@ -77,6 +77,30 @@ main{max-width:960px;margin:0 auto;padding:18px 16px 120px}
 .barra-lista .campo{flex:1;margin:0}
 .chips{display:flex;gap:6px;overflow-x:auto;margin:0 0 12px;padding-bottom:2px}
 .chip{padding:7px 13px;border-radius:999px;border:1px solid var(--linha);font-size:12px;font-weight:600;white-space:nowrap;background:var(--cartao);color:var(--suave)}
+.linha-lista{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:12px 0;border-top:1px solid var(--linha)}
+.linha-lista:first-child{border-top:0}
+.linha-lista .nome{font-weight:600;flex:1;min-width:120px}
+.linha-lista .conta{font-size:12px;color:var(--suave)}
+.linha-lista .acoes{display:flex;gap:14px}
+.linha-lista .painel-acao{flex-basis:100%;display:flex;flex-wrap:wrap;gap:8px;align-items:end}
+.linha-lista .painel-acao .campo{flex:1;min-width:180px;margin:0}
+.linha-lista.excluida .nome{color:var(--suave);text-decoration:line-through}
+.adicionar-lista{display:flex;gap:8px;margin-top:12px}
+.adicionar-lista input{flex:1}
+.dia-encomenda{margin-top:18px}
+.dia-encomenda>h3{font-size:17px;margin:0 0 8px}
+.grupo-encomenda{background:var(--cartao);border:1px solid var(--linha);border-radius:14px;padding:12px 14px;margin-bottom:10px}
+.grupo-encomenda .topo{display:flex;gap:10px;align-items:baseline;justify-content:space-between}
+.grupo-encomenda .produto{font-weight:600}
+.grupo-encomenda .qtd{font-family:'Playfair Display',Georgia,serif;font-size:20px;white-space:nowrap}
+.grupo-encomenda .clientes{font-size:12px;color:var(--suave);margin:6px 0 10px;display:grid;gap:2px}
+.grupo-encomenda .botoes{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.grupo-encomenda .botoes .btn{padding:8px 14px;font-size:13px;min-height:38px}
+.situacao-enc{font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px;background:var(--bege);color:var(--champagne-texto)}
+.situacao-enc.encomendado{background:#E3EEE5;color:var(--ok)}
+.situacao-enc.nao{background:#F3E1DE;color:var(--erro)}
+.selo-qtd-aba{display:inline-block;min-width:18px;padding:0 5px;margin-left:5px;border-radius:999px;background:var(--champagne);color:#fff;font-size:11px;line-height:18px;text-align:center}
+.info-planilha{font-size:12px;color:var(--suave);margin-top:14px}
 .chip.ativo{background:var(--texto);border-color:var(--texto);color:var(--fundo)}
 .contagem{font-size:12px;color:var(--suave);margin:0 0 10px}
 .lista{display:grid;gap:10px}
@@ -162,6 +186,8 @@ main{max-width:960px;margin:0 auto;padding:18px 16px 120px}
   </div>
   <nav class="abas" id="abas" hidden>
     <button data-tela="lista" onclick="irPara('lista')">Produtos</button>
+    <button data-tela="encomendas" onclick="irPara('encomendas')">Encomendas<span class="selo-qtd-aba" id="qtd-encomendas" hidden></span></button>
+    <button data-tela="listas" onclick="irPara('listas')">Categorias e marcas</button>
     <button data-tela="loja" onclick="irPara('loja')">Loja</button>
   </nav>
 </header>
@@ -251,6 +277,24 @@ main{max-width:960px;margin:0 auto;padding:18px 16px 120px}
     </div></div>
   </section>
 
+  <!-- ENCOMENDAS -->
+  <section id="tela-encomendas" hidden>
+    <h2 class="titulo-tela">Encomendas</h2>
+    <p class="desc-tela">Produtos esgotados que as clientes pediram pelo site, por dia. Marque quando encomendar com o fornecedor, ou se não vai encomendar.</p>
+    <div class="chips" id="filtros-encomendas"></div>
+    <div id="lista-encomendas"></div>
+  </section>
+
+  <!-- CATEGORIAS E MARCAS -->
+  <section id="tela-listas" hidden>
+    <h2 class="titulo-tela">Categorias e marcas</h2>
+    <p class="desc-tela">Renomear troca o nome em todos os produtos. Para excluir uma que está em uso, escolha para onde os produtos vão. Nada é apagado: dá para restaurar.</p>
+    <div class="cartao secao"><h3>Categorias</h3><div id="lista-Categoria"></div>
+      <div class="adicionar-lista"><input id="nova-Categoria" maxlength="60" placeholder="Nova categoria"><button class="btn btn-principal" onclick="criarNaLista('Categoria')">Adicionar</button></div></div>
+    <div class="cartao secao"><h3>Marcas</h3><div id="lista-Marca"></div>
+      <div class="adicionar-lista"><input id="nova-Marca" maxlength="60" placeholder="Nova marca"><button class="btn btn-principal" onclick="criarNaLista('Marca')">Adicionar</button></div></div>
+  </section>
+
   <!-- LOJA -->
   <section id="tela-loja" hidden>
     <h2 class="titulo-tela">Dados da loja</h2>
@@ -258,6 +302,7 @@ main{max-width:960px;margin:0 auto;padding:18px 16px 120px}
     <div class="cartao">
       <div class="campo"><label for="loja-whatsapp">WhatsApp que recebe os pedidos</label><input id="loja-whatsapp" inputmode="tel" placeholder="(79) 99999-9999"><span class="dica">Com DDD. O site coloca o 55 sozinho.</span></div>
       <button class="btn btn-principal" id="btn-salvar-loja" onclick="salvarLoja()">Salvar</button>
+      <div class="info-planilha" id="info-planilha"></div>
     </div>
   </section>
 </main>
@@ -279,6 +324,11 @@ let senha = "";
 let produtos = [];            // linhas da aba do catálogo (objetos com os nomes das colunas)
 let opcoes = [];              // linhas da aba de combinações
 let whatsappLoja = "";
+let listas = [];              // aba "Listas": [{tipo, nome, situacao}]
+let planilhaInfo = null;      // {nome, url, aba} da planilha que o Apps Script usa
+let acaoLista = null;
+let encomendas = [];          // aba "Encomendas": [{linha, data, pedido, cliente, id, produto, qtd, situacao, atualizado}]
+let filtroEncomendas = "Pendente";         // {tipo, nome, modo: "renomear" | "excluir"}
 let filtroAtual = "ativos";
 let grupoEmEdicao = null;
 let fotosEmEdicao = [];       // link (texto) ou {base64, previa}
@@ -322,7 +372,7 @@ function ocupado(btn, texto){
 function livre(btn){ btn.disabled = false; btn.textContent = btn.dataset.texto || btn.textContent; delete btn.dataset.texto; }
 
 // ===================== telas =====================
-const TELAS = ["entrar", "lista", "edicao", "loja"];
+const TELAS = ["entrar", "lista", "edicao", "encomendas", "listas", "loja"];
 function mostrarTela(nome){
   TELAS.forEach(t => $("tela-" + t).hidden = t !== nome);
   $("abas").hidden = nome === "entrar";
@@ -333,7 +383,13 @@ function mostrarTela(nome){
 function irPara(tela){
   esconderAviso();
   if(tela === "lista"){ mostrarTela("lista"); renderizarLista(); }
-  else if(tela === "loja"){ $("loja-whatsapp").value = whatsappLoja; mostrarTela("loja"); }
+  else if(tela === "encomendas"){ mostrarTela("encomendas"); renderizarEncomendas(); }
+  else if(tela === "listas"){ acaoLista = null; mostrarTela("listas"); renderizarListas(); }
+  else if(tela === "loja"){
+    $("loja-whatsapp").value = whatsappLoja;
+    $("info-planilha").innerHTML = planilhaInfo ? `Planilha ligada ao painel: <a href="${escaparHtml(planilhaInfo.url)}" target="_blank" rel="noopener">${escaparHtml(planilhaInfo.nome)}</a> (aba ${escaparHtml(planilhaInfo.aba)})` : "";
+    mostrarTela("loja");
+  }
 }
 
 // ===================== Apps Script =====================
@@ -367,6 +423,11 @@ async function carregarTudo(){
   produtos = d.produtos || [];
   opcoes = d.opcoes || [];
   whatsappLoja = (d.whatsapp && d.whatsapp.valor) || "";
+  listas = Array.isArray(d.listas) ? d.listas : [];
+  planilhaInfo = d.planilha || null;
+  encomendas = Array.isArray(d.encomendas) ? d.encomendas : [];
+  const pend = encomendas.filter(e => e.situacao === "Pendente").length;
+  $("qtd-encomendas").hidden = !pend; $("qtd-encomendas").textContent = pend;
 }
 function tratarErro(e, padrao){
   if(e && e.codigo === "senha"){ sair(); mostrarAviso("erro", "A senha mudou ou está incorreta. Entre de novo."); return; }
@@ -527,9 +588,125 @@ function chaveLigada(id){ return $(id).classList.contains("ligada"); }
 function alternarChave(el){ el.classList.toggle("ligada"); }
 function atualizarKit(){ $("bloco-itens-kit").hidden = !chaveLigada("ch-kit"); }
 function preencherListas(){
+  $("lista-marcas").innerHTML = itensDaLista("Marca").filter(x => !x.excluida).map(x => `<option value="${escaparHtml(x.nome)}">`).join("");
+  $("lista-categorias").innerHTML = itensDaLista("Categoria").filter(x => !x.excluida).map(x => `<option value="${escaparHtml(x.nome)}">`).join("");
+}
+
+// ===================== encomendas =====================
+const FILTROS_ENCOMENDA = [["Pendente", "Pendentes"], ["Encomendado", "Encomendadas"], ["Não vai encomendar", "Não vou encomendar"], ["", "Todas"]];
+function diaDe(data){ return String(data || "").slice(0, 10); }
+function chaveDia(dia){ const [d, m, a] = dia.split("/"); return `${a}${m}${d}`; }
+function renderizarEncomendas(){
+  const conta = s => encomendas.filter(e => !s || e.situacao === s).length;
+  $("filtros-encomendas").innerHTML = FILTROS_ENCOMENDA.map(([id, nome]) => `<button class="chip ${filtroEncomendas === id ? "ativo" : ""}" onclick="filtroEncomendas='${id}'; renderizarEncomendas()">${nome} (${conta(id)})</button>`).join("");
+  const vis = encomendas.filter(e => !filtroEncomendas || e.situacao === filtroEncomendas);
+  // dia → produto (mesmo nome, com a opção) → linhas
+  const dias = new Map();
+  vis.forEach(e => {
+    const dia = diaDe(e.data);
+    if(!dias.has(dia)) dias.set(dia, new Map());
+    const k = e.id + "|" + e.produto + "|" + e.situacao;
+    const g = dias.get(dia);
+    if(!g.has(k)) g.set(k, []);
+    g.get(k).push(e);
+  });
+  const ordem = [...dias.keys()].sort((a, b) => chaveDia(b).localeCompare(chaveDia(a)));
+  const classe = s => s === "Encomendado" ? "encomendado" : s === "Não vai encomendar" ? "nao" : "";
+  $("lista-encomendas").innerHTML = ordem.map(dia => `<div class="dia-encomenda"><h3>${escaparHtml(dia)}</h3>${
+    [...dias.get(dia).values()].map(linhas => {
+      const e0 = linhas[0], total = linhas.reduce((s, e) => s + e.qtd, 0);
+      const alvo = escaparHtml(JSON.stringify(linhas.map(e => ({ linha: e.linha, pedido: e.pedido, id: e.id }))));
+      const botoes = e0.situacao === "Pendente"
+        ? `<button class="btn btn-principal" onclick="mudarEncomenda(this, 'Encomendado')" data-alvo="${alvo}">Encomendei</button><button class="btn btn-borda" onclick="mudarEncomenda(this, 'Não vai encomendar')" data-alvo="${alvo}">Não vou encomendar</button>`
+        : `<button class="btn-link" onclick="mudarEncomenda(this, 'Pendente')" data-alvo="${alvo}">Voltar para pendente</button>`;
+      return `<div class="grupo-encomenda"><div class="topo"><span class="produto">${escaparHtml(e0.produto)} <span class="detalhe" style="font-weight:400;color:var(--suave);font-size:12px">· ID ${escaparHtml(e0.id)}</span></span><span class="qtd">${total} un.</span></div>
+        <div class="clientes">${linhas.map(e => `<span>${escaparHtml(e.cliente || "Cliente")} · ${e.qtd} un. · pedido #${escaparHtml(e.pedido)} · ${escaparHtml(String(e.data).slice(11))}</span>`).join("")}</div>
+        <div class="botoes"><span class="situacao-enc ${classe(e0.situacao)}">${escaparHtml(e0.situacao)}${e0.atualizado ? " em " + escaparHtml(e0.atualizado) : ""}</span>${botoes}</div></div>`;
+    }).join("")}</div>`).join("") || `<div class="vazio">${filtroEncomendas === "Pendente" ? "Nenhuma encomenda pendente." : "Nada aqui."}</div>`;
+}
+async function mudarEncomenda(btn, situacao){
+  esconderAviso();
+  const itens = JSON.parse(btn.dataset.alvo);
+  ocupado(btn, "Salvando...");
+  try{
+    await chamarScript({ acao: "situacaoEncomenda", situacao, itens });
+    await carregarTudo();
+    renderizarEncomendas();
+    mostrarAviso("sucesso", situacao === "Pendente" ? "Voltou para pendente." : `Marcado como “${situacao}”.`);
+  }catch(e){ tratarErro(e, "Não consegui salvar."); livre(btn); }
+}
+
+// ===================== categorias e marcas =====================
+// Junta a aba "Listas" com o que já está nos produtos. Conta só produtos não excluídos.
+function itensDaLista(tipo){
+  const campo = tipo === "Marca" ? "marca" : "categoria";
   const vivos = montarGrupos().filter(g => !g.excluido);
-  $("lista-marcas").innerHTML = [...new Set(vivos.map(g => g.marca).filter(Boolean))].sort().map(m => `<option value="${escaparHtml(m)}">`).join("");
-  $("lista-categorias").innerHTML = [...new Set(vivos.map(g => g.categoria).filter(Boolean))].sort().map(m => `<option value="${escaparHtml(m)}">`).join("");
+  const mapa = new Map();
+  listas.filter(x => x.tipo === tipo).forEach(x => mapa.set(semAcento(x.nome), { nome: x.nome, excluida: semAcento(x.situacao).startsWith("exclu"), produtos: 0 }));
+  vivos.forEach(g => {
+    const v = limparTexto(g[campo]); if(!v) return;
+    const k = semAcento(v);
+    if(!mapa.has(k)) mapa.set(k, { nome: v, excluida: false, produtos: 0 });
+    const x = mapa.get(k); x.produtos++; x.excluida = false;
+  });
+  return [...mapa.values()].sort((a, b) => (a.excluida - b.excluida) || semAcento(a.nome).localeCompare(semAcento(b.nome)));
+}
+function renderizarListas(){
+  ["Categoria", "Marca"].forEach(tipo => {
+    const itens = itensDaLista(tipo);
+    const outros = nome => itens.filter(x => !x.excluida && x.nome !== nome);
+    $("lista-" + tipo).innerHTML = itens.map(x => {
+      const n = escaparHtml(x.nome).replace(/'/g, "&#39;"), js = x.nome.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, "&quot;");
+      const aberto = acaoLista && acaoLista.tipo === tipo && acaoLista.nome === x.nome ? acaoLista.modo : "";
+      let painel = "";
+      if(aberto === "renomear") painel = `<div class="painel-acao"><div class="campo"><label>Nome novo</label><input id="lista-novo-nome" maxlength="60" value="${n}"></div>
+        <button class="btn btn-principal" id="btn-lista-ok" onclick="confirmarLista()">Salvar</button><button class="btn btn-borda" onclick="abrirAcaoLista(null)">Cancelar</button></div>`;
+      if(aberto === "excluir") painel = `<div class="painel-acao">${x.produtos ? `<div class="campo"><label>Mover os ${x.produtos} produto(s) para</label><select id="lista-destino">${outros(x.nome).map(o => `<option>${escaparHtml(o.nome)}</option>`).join("")}${tipo === "Marca" ? `<option value="">Sem marca</option>` : ""}</select></div>` : `<span class="conta">Nenhum produto usa. Pode excluir.</span>`}
+        <button class="btn btn-perigo" id="btn-lista-ok" onclick="confirmarLista()">Excluir</button><button class="btn btn-borda" onclick="abrirAcaoLista(null)">Cancelar</button></div>`;
+      return `<div class="linha-lista ${x.excluida ? "excluida" : ""}"><span class="nome">${escaparHtml(x.nome)}</span>
+        <span class="conta">${x.excluida ? "Excluída" : `${x.produtos} ${x.produtos === 1 ? "produto" : "produtos"}`}</span>
+        <span class="acoes">${x.excluida ? `<button class="btn-link" onclick="enviarLista('${tipo}', 'restaurar', '${js}')">Restaurar</button>`
+          : `<button class="btn-link" onclick="abrirAcaoLista('${tipo}', '${js}', 'renomear')">Renomear</button><button class="btn-link" style="color:var(--erro)" onclick="abrirAcaoLista('${tipo}', '${js}', 'excluir')">Excluir</button>`}</span>${painel}</div>`;
+    }).join("") || `<div class="vazio">Nenhuma ainda.</div>`;
+  });
+}
+function abrirAcaoLista(tipo, nome, modo){
+  acaoLista = tipo ? { tipo, nome, modo } : null;
+  renderizarListas();
+  if(acaoLista && modo === "renomear"){ const el = $("lista-novo-nome"); el.focus(); el.select(); }
+}
+function confirmarLista(){
+  const a = acaoLista; if(!a) return;
+  if(a.modo === "renomear"){
+    const para = limparTexto($("lista-novo-nome").value);
+    if(!para) return mostrarAviso("erro", "Digite o nome novo.");
+    if(para === a.nome) return abrirAcaoLista(null);
+    return enviarLista(a.tipo, "renomear", a.nome, para, $("btn-lista-ok"));
+  }
+  const destino = $("lista-destino");
+  return enviarLista(a.tipo, "excluir", a.nome, destino ? destino.value : "", $("btn-lista-ok"), !!destino && !destino.value);
+}
+function criarNaLista(tipo){
+  const nome = limparTexto($("nova-" + tipo).value);
+  if(!nome) return mostrarAviso("erro", "Digite o nome.");
+  if(itensDaLista(tipo).some(x => !x.excluida && semAcento(x.nome) === semAcento(nome))) return mostrarAviso("erro", `${tipo} “${nome}” já existe.`);
+  return enviarLista(tipo, "criar", nome, "", $("nova-" + tipo).nextElementSibling);
+}
+async function enviarLista(tipo, operacao, nome, para, btn, semMarca){
+  esconderAviso();
+  if(btn) ocupado(btn, "Salvando...");
+  try{
+    const r = await chamarScript({ acao: "lista", tipo, operacao, nome, para, semMarca: !!semMarca });
+    await carregarTudo();
+    acaoLista = null;
+    if(operacao === "criar") $("nova-" + tipo).value = "";
+    renderizarListas();
+    const qual = tipo === "Marca" ? "Marca" : "Categoria";
+    mostrarAviso("sucesso", operacao === "criar" ? `${qual} “${nome}” criada.` : operacao === "restaurar" ? `${qual} “${nome}” restaurada.`
+      : operacao === "renomear" ? `${qual} renomeada para “${para}”${r.produtos ? ` em ${r.produtos} produto(s)` : ""}.`
+      : `${qual} “${nome}” excluída${r.produtos ? `; ${r.produtos} produto(s) foram para “${para || "sem marca"}”` : ""}.`);
+  }catch(e){ tratarErro(e, "Não consegui salvar."); }
+  finally{ if(btn && document.body.contains(btn)) livre(btn); }
 }
 function abrirEdicao(id){
   esconderAviso();
