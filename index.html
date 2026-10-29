@@ -3319,7 +3319,7 @@ function gerarIdDeData(data){
 }
 
 // Itens esgotados (encomenda) vão também para a aba "Encomendas" da planilha, pelo Apps Script do painel.
-const URL_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycby5k6xBXK6KkZx9IqwB4C9GzzzHHhGdaGDbvjxfzgZWP9-X68coaSjO1ngRnXpIiyRO/exec";
+const URL_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbwAZHuSA4dlSAq0_wjVGtWd_cjZDv_BPI1TFOKS72VQQib-ZUtgoVPxkQ_94TMhHSKf/exec";
 let pedidoEmEnvio = "";
 function anotarEncomendas(idPedido){
   const itens = Object.values(carrinho).filter(i => i.encomenda).map(i => ({ id: i.idProduto, nome: i.nome, qtd: i.qtd }));
