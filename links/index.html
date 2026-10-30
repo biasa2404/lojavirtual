@@ -16,7 +16,7 @@
 @font-face{font-family:Montserrat;font-weight:300 700;font-display:swap;src:url(../fontes/montserrat.woff2) format('woff2')}
 @font-face{font-family:'Playfair Display';font-weight:400 700;font-display:swap;src:url(../fontes/playfair.woff2) format('woff2')}
 @font-face{font-family:'Playfair Display';font-style:italic;font-weight:400 700;font-display:swap;src:url(../fontes/playfair-italico.woff2) format('woff2')}
-:root{--fundo:#FFFFFF;--cartao:#FAF8F4;--linha:#E6DDCE;--texto:#171717;--suave:#6B6255;--champagne:#B9986A;--champagne-texto:#93692F;--destaque:#171717;--destaque-texto:#F8F6F1}
+:root{--fundo:#FFFFFF;--cartao:#FAF8F4;--linha:#E6DDCE;--texto:#171717;--suave:#6B6255;--champagne:#B9986A;--champagne-texto:#93692F;--destaque:#B9986A;--destaque-texto:#171717}
 *{box-sizing:border-box}
 html,body{margin:0}
 body{min-height:100vh;min-height:100svh;background:var(--fundo);color:var(--texto);font-family:Montserrat,Arial,sans-serif;display:flex;justify-content:center;padding:44px 16px calc(32px + env(safe-area-inset-bottom));-webkit-font-smoothing:antialiased}
@@ -34,7 +34,8 @@ a.link:active{transform:translateY(0)}
 a.link:focus-visible{outline:3px solid var(--champagne);outline-offset:3px}
 a.link.principal{background:var(--destaque);color:var(--destaque-texto);border-color:var(--destaque)}
 a.link.principal .sub{color:inherit;opacity:.75}
-a.link.principal .icone{background:#ffffff1f;color:inherit}
+a.link.principal .icone{background:#ffffff59;color:inherit}
+a.link.principal:hover{border-color:#A3845A;box-shadow:0 8px 22px #B9986A40}
 .icone{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;flex-shrink:0;background:color-mix(in srgb,var(--champagne) 16%,transparent);color:var(--champagne-texto)}
 .icone svg{width:20px;height:20px}
 .texto{display:flex;flex-direction:column;min-width:0;flex:1}
@@ -65,7 +66,7 @@ footer{margin-top:34px;font-size:10.5px;color:var(--suave);text-align:center;let
       <svg class="seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 17 17 7M8 7h9v9"/></svg>
     </a>
 
-    <a class="link" id="link-local" href="https://www.google.com/maps/search/?api=1&amp;query=Studio%20Renata%20Almeida%20Aracaju" target="_blank" rel="noopener">
+    <a class="link" id="link-local" href="https://maps.app.goo.gl/SCpEPW1Mpr57ZzQT7" target="_blank" rel="noopener">
       <span class="icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z"/><circle cx="12" cy="10" r="2.4"/></svg></span>
       <span class="texto"><span class="titulo">Localização</span><span class="sub">Como chegar no Google Maps</span></span>
       <svg class="seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 17 17 7M8 7h9v9"/></svg>
