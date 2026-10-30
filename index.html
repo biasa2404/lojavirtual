@@ -1341,6 +1341,8 @@ header.top::after{height:2px!important;background:var(--champagne)!important}
 .nota-encomenda{flex-basis:100%;font-size:11px;color:var(--champagne-texto,#93692F);margin-top:8px;text-align:center}
 #rodape-produto-modal{flex-wrap:wrap}
 .aviso-reserva{font-size:12px;line-height:1.55;color:var(--texto);background:var(--grafite-3);border-left:3px solid var(--champagne,#B9986A);border-radius:4px;padding:11px 13px;margin:0 0 14px}
+.preco-de{font-size:11px;color:var(--texto-suave);margin:-6px 0 2px;line-height:1.3}.preco-de s{text-decoration-thickness:1px}
+#preco-de-modal .preco-de{font-size:13px;margin:0 0 4px}
 .item-encomenda{display:inline-block;margin-top:4px;font-size:10px;font-weight:600;color:var(--champagne-texto,#93692F);border:1px dashed currentColor;border-radius:999px;padding:1px 8px}
 
 /* 29/10: celular mais enxuto — produtos aparecem mais cedo; "Recomendados" inteiro */
@@ -1586,6 +1588,7 @@ header.top::after{height:2px!important;background:var(--champagne)!important}
       <span class="categoria-produto-modal" id="categoria-produto-modal"></span>
       <h3 class="nome-produto-modal" id="nome-produto-modal"></h3>
       <div class="oferta-especial-modal" id="oferta-especial-modal" style="display:none;">Oferta especial</div>
+      <div id="preco-de-modal"></div>
       <div class="preco-produto-modal tabular" id="preco-produto-modal"></div>
       <div class="preco-varejo tabular" id="preco-varejo-modal" hidden></div>
       <p class="descricao-produto-modal" id="descricao-produto-modal"></p>
@@ -2308,6 +2311,7 @@ async function carregarProdutosDaPlanilha(){
         recomendado: paraSimNao(l["recomendado?"] || l["recomendado"]),
         novo: paraSimNao(l["novo?"] || l["novo"]),
         ofertaEspecial: paraSimNao(l["oferta especial?"] || l["oferta especial"] || l["oferta?"]),
+        precoAnterior: paraNumero(l["preço anterior (r$)"] || l["preço anterior"] || l["preco anterior"]),
         eKit: paraSimNao(l["é kit?"] || l["e kit?"] || l["kit?"] || l["kit"]),
         itensKit: (l["itens do kit"] || "").split(/\r?\n|;/).map(x => x.trim()).filter(Boolean),
         descricao: l["descrição"] || l["descricao"] || "",
@@ -2411,6 +2415,12 @@ function valorDisponivel(p, tipo, valor, selecaoParcial, aceitarEsgotado){
   });
 }
 
+// Oferta "de R$ X por R$ Y": só quando o preço mostrado é o preço da oferta (o mais baixo).
+function precoDeHtml(p, precoMostrado){
+  const por = precoMostrado == null ? p.preco : precoMostrado;
+  if(!p.ofertaEspecial || !(p.precoAnterior > por) || Math.abs(por - p.preco) > 0.001) return "";
+  return `<div class="preco-de tabular">de <s>${formatarPreco(p.precoAnterior)}</s> por</div>`;
+}
 // Esgotado = sob encomenda: o produto todo (Situação Esgotado) ou a opção escolhida.
 function ehEncomenda(p, selecao){
   if(!p) return false;
@@ -2774,7 +2784,9 @@ function escolherVariacao(tipo, valor){
 // mesmo que já exista uma variação pré-selecionada com foto própria.
 function aplicarSelecaoAtual(mudarGaleria = true){
   const p = produtoModalAtual;
-  document.getElementById("preco-produto-modal").textContent = formatarPreco(calcularPrecoComVariacao(p, selecaoVariacaoAtual));
+  const precoAgora = calcularPrecoComVariacao(p, selecaoVariacaoAtual);
+  document.getElementById("preco-produto-modal").textContent = formatarPreco(precoAgora);
+  document.getElementById("preco-de-modal").innerHTML = precoDeHtml(p, precoAgora);
   const varejoModal = precoVarejoComVariacao(p, selecaoVariacaoAtual);
   const elVarejo = document.getElementById("preco-varejo-modal");
   elVarejo.hidden = !varejoModal;
@@ -3032,7 +3044,7 @@ function renderCatalogo(){
  container.className=(modoVisualizacao==='lista'?'lista-produtos':'grid-produtos')+' tam-'+tamanhoVisualizacao;
  const action=p=>{const qtd=p.combinacoes?0:(carrinho[String(p.id)]?.qtd||0);if(p.combinacoes)return `<button class="btn-add${p.esgotado?' btn-encomendar':''}" onclick="abrirDetalheProduto(${p.id})">${p.esgotado?'Encomendar':'Escolher opções'} <span class="plus"><svg class="seta" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg></span></button>`;return qtd?`<div class="controle-qtd"><button class="btn-qtd" aria-label="Diminuir quantidade" onclick="alterarQtd(${p.id},-1)">−</button><span class="qtd-valor">${qtd}</span><button class="btn-qtd" aria-label="Aumentar quantidade" onclick="alterarQtd(${p.id},1)">+</button></div><div class="indicador-carrinho">${p.esgotado?'Encomendado ✓':'No seu pedido ✓'}</div>`:`<button class="btn-add${p.esgotado?' btn-encomendar':''}" onclick="alterarQtd(${p.id},1)">${p.esgotado?'Encomendar':'Adicionar'} <span class="plus">+</span></button>`};
  const photo=p=>`<div class="foto-produto${photoClass(p)}" role="button" tabindex="0" aria-label="Ver ${escapeHtml(p.nome)}" onclick="abrirDetalheProduto(${p.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirDetalheProduto(${p.id})}">${p.recomendado?'<span class="selo-recomendado">Favorito do Studio</span>':p.novo?'<span class="selo-recomendado selo-novo">Novidade</span>':p.eKit?'<span class="selo-recomendado selo-kit">Kit</span>':''}${p.ofertaEspecial?'<span class="selo-oferta">Oferta especial</span>':''}${blocoFotoProduto(p)}${photoLabels(p)}</div>`;
- container.innerHTML=produtos.map(p=>{const qtd=p.combinacoes?Object.values(carrinho).filter(x=>x.idProduto===p.id).reduce((s,x)=>s+x.qtd,0):(carrinho[String(p.id)]?.qtd||0);const name=`<div class="nome-produto" tabindex="0" role="button" onclick="abrirDetalheProduto(${p.id})" onkeydown="if(event.key==='Enter'){abrirDetalheProduto(${p.id})}">${escapeHtml(p.nome)}</div>`;if(modoVisualizacao==='lista')return `<article class="item-lista ${qtd?'no-carrinho':''}">${photo(p)}<div class="info-produto"><div class="product-meta">${metaProduto(p)}</div>${name}<div class="preco-produto tabular">${formatarPreco(p.preco)}</div>${p.precoVarejo?`<div class="preco-varejo tabular">Varejo ${formatarPreco(p.precoVarejo)}</div>`:''}</div><div class="acao">${action(p)}</div></article>`;const nc=p.combinacoes?new Set(p.combinacoes.map(c=>valorCombo(c,'Cor')).filter(Boolean)).size:0;return `<article class="card-produto ${qtd?'no-carrinho':''}">${photo(p)}<div class="product-copy"><div class="product-meta">${metaProduto(p)}</div>${name}<div class="preco-produto tabular">${formatarPreco(p.preco)}</div>${p.precoVarejo?`<div class="preco-varejo tabular">Varejo ${formatarPreco(p.precoVarejo)}</div>`:''}<div class="product-note${p.esgotado?' nota-esgotado':''}">${p.esgotado?'Esgotado · sob encomenda':p.combinacoes?(nc?nc+' cores · ':'')+'Escolha a combinação':p.novo?'Novo no catálogo':'Consulte os detalhes do produto'}</div><div class="product-bottom">${action(p)}</div></div></article>`}).join('');
+ container.innerHTML=produtos.map(p=>{const qtd=p.combinacoes?Object.values(carrinho).filter(x=>x.idProduto===p.id).reduce((s,x)=>s+x.qtd,0):(carrinho[String(p.id)]?.qtd||0);const name=`<div class="nome-produto" tabindex="0" role="button" onclick="abrirDetalheProduto(${p.id})" onkeydown="if(event.key==='Enter'){abrirDetalheProduto(${p.id})}">${escapeHtml(p.nome)}</div>`;if(modoVisualizacao==='lista')return `<article class="item-lista ${qtd?'no-carrinho':''}">${photo(p)}<div class="info-produto"><div class="product-meta">${metaProduto(p)}</div>${name}${precoDeHtml(p)}<div class="preco-produto tabular">${formatarPreco(p.preco)}</div>${p.precoVarejo?`<div class="preco-varejo tabular">Varejo ${formatarPreco(p.precoVarejo)}</div>`:''}</div><div class="acao">${action(p)}</div></article>`;const nc=p.combinacoes?new Set(p.combinacoes.map(c=>valorCombo(c,'Cor')).filter(Boolean)).size:0;return `<article class="card-produto ${qtd?'no-carrinho':''}">${photo(p)}<div class="product-copy"><div class="product-meta">${metaProduto(p)}</div>${name}${precoDeHtml(p)}<div class="preco-produto tabular">${formatarPreco(p.preco)}</div>${p.precoVarejo?`<div class="preco-varejo tabular">Varejo ${formatarPreco(p.precoVarejo)}</div>`:''}<div class="product-note${p.esgotado?' nota-esgotado':''}">${p.esgotado?'Esgotado · sob encomenda':p.combinacoes?(nc?nc+' cores · ':'')+'Escolha a combinação':p.novo?'Novo no catálogo':'Consulte os detalhes do produto'}</div><div class="product-bottom">${action(p)}</div></div></article>`}).join('');
 }
 
 function alterarQtd(chave, delta){

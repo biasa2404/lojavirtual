@@ -56,6 +56,7 @@ main{max-width:960px;margin:0 auto;padding:18px 16px 120px}
 .campo input:focus,.campo select:focus,.campo textarea:focus{border-color:var(--champagne);background:#fff}
 .campo textarea{min-height:90px;resize:vertical}
 .campo .dica{font-size:12px;color:var(--suave)}
+.campo .dica.erro-dica{color:var(--erro,#b3261e)}
 .duas{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 20px;border-radius:999px;font-weight:600;font-size:14px;min-height:46px}
 .btn-principal{background:var(--texto);color:var(--fundo)}
@@ -258,9 +259,10 @@ main{max-width:960px;margin:0 auto;padding:18px 16px 120px}
         <button type="button" class="chave" id="ch-esgotado" onclick="alternarChave(this)"><span><div class="t">Esgotado</div><div class="d">Some do site até você desligar.</div></span><span class="interruptor"></span></button>
         <button type="button" class="chave" id="ch-destaque" onclick="alternarChave(this)"><span><div class="t">Favorito do Studio</div><div class="d">Selo no card e aparece primeiro.</div></span><span class="interruptor"></span></button>
         <button type="button" class="chave" id="ch-novo" onclick="alternarChave(this)"><span><div class="t">Novidade</div><div class="d">Selo “Novidade” no card.</div></span><span class="interruptor"></span></button>
-        <button type="button" class="chave" id="ch-oferta" onclick="alternarChave(this)"><span><div class="t">Oferta especial</div><div class="d">Selo “Oferta especial” no card.</div></span><span class="interruptor"></span></button>
+        <button type="button" class="chave" id="ch-oferta" onclick="alternarChave(this); atualizarOferta()"><span><div class="t">Oferta especial</div><div class="d">Selo “Oferta especial” no card. Você pode pôr o preço de antes.</div></span><span class="interruptor"></span></button>
         <button type="button" class="chave" id="ch-kit" onclick="alternarChave(this); atualizarKit()"><span><div class="t">É um kit</div><div class="d">Mostra a lista do que vem no kit.</div></span><span class="interruptor"></span></button>
       </div>
+      <div class="campo" id="bloco-preco-anterior" style="margin-top:12px" hidden><label for="ed-preco-anterior">Preço anterior (opcional)</label><input id="ed-preco-anterior" inputmode="decimal" placeholder="Ex: R$ 150,00" oninput="mascararPreco(this); atualizarOferta()"><span class="dica" id="dica-oferta">No site aparece riscado: “de R$ 150,00 por R$ 99,00”.</span></div>
       <div class="campo" id="bloco-itens-kit" style="margin-top:12px" hidden><label for="ed-itens-kit">O que vem no kit (um por linha)</label><textarea id="ed-itens-kit" placeholder="Shampoo 300ml&#10;Condicionador 300ml"></textarea></div>
     </div>
 
@@ -505,7 +507,7 @@ function montarGrupos(){
       esgotado: sit.startsWith("esgot") || (ops.length > 0 && ops.every(o => o.esgotado)),
       precoMin: Math.min(...precos), precoMax: Math.max(...precos),
       fotos: ["Imagem (URL)", "Imagem 2 (URL)", "Imagem 3 (URL)", "Imagem 4 (URL)", "Imagem 5 (URL)"].map(c => String(p[c] || "").trim()).filter(Boolean),
-      destaque: simDaPlanilha(p["Recomendado?"]), novo: simDaPlanilha(p["Novo?"]), oferta: simDaPlanilha(p["Oferta Especial?"]),
+      destaque: simDaPlanilha(p["Recomendado?"]), novo: simDaPlanilha(p["Novo?"]), oferta: simDaPlanilha(p["Oferta Especial?"]), precoAnterior: numeroDaPlanilha(p["Preço anterior (R$)"]),
       kit: simDaPlanilha(p["É Kit?"]), itensKit: String(p["Itens do Kit"] || "").split(/\r?\n|;/).map(limparTexto).filter(Boolean).join("\n"),
       descricao: String(p["Descrição"] || ""),
     };
@@ -628,6 +630,24 @@ function definirChave(id, ligada){ $(id).classList.toggle("ligada", !!ligada); }
 function chaveLigada(id){ return $(id).classList.contains("ligada"); }
 function alternarChave(el){ el.classList.toggle("ligada"); }
 function atualizarKit(){ $("bloco-itens-kit").hidden = !chaveLigada("ch-kit"); }
+// Preço da oferta = preço do produto (com opções, o menor preço das opções).
+function precoDaOferta(){
+  if(!chaveLigada("ch-variacoes")) return lerPreco($("ed-preco").value);
+  lerVariacoesDaTela();
+  const ps = variacoesEmEdicao.map(o => o.preco).filter(n => n > 0);
+  return ps.length ? Math.min(...ps) : null;
+}
+function atualizarOferta(){
+  const ligada = chaveLigada("ch-oferta");
+  $("bloco-preco-anterior").hidden = !ligada;
+  if(!ligada) return;
+  const de = lerPreco($("ed-preco-anterior").value), por = precoDaOferta();
+  const dica = $("dica-oferta");
+  dica.classList.toggle("erro-dica", !!(de && por && de <= por));
+  dica.textContent = de && por
+    ? (de > por ? `No site aparece: de ${formatarPreco(de)} por ${formatarPreco(por)}.` : `O preço anterior precisa ser maior que ${formatarPreco(por)}.`)
+    : "No site aparece riscado: “de R$ 150,00 por R$ 99,00”. Deixe vazio para mostrar só o selo.";
+}
 function preencherListas(){
   $("lista-marcas").innerHTML = itensDaLista("Marca").filter(x => !x.excluida).map(x => `<option value="${escaparHtml(x.nome)}">`).join("");
   $("lista-categorias").innerHTML = itensDaLista("Categoria").filter(x => !x.excluida).map(x => `<option value="${escaparHtml(x.nome)}">`).join("");
@@ -772,6 +792,8 @@ function abrirEdicao(id){
   definirChave("ch-oferta", g && g.oferta);
   definirChave("ch-kit", g && g.kit);
   atualizarKit();
+  $("ed-preco-anterior").value = g && g.oferta ? precoParaCampo(g.precoAnterior) : "";
+  atualizarOferta();
   fotosEmEdicao = g ? g.fotos.slice() : [];
   renderizarFotos();
   variacoesEmEdicao = g ? g.opcoes.map(o => Object.assign({}, o)) : [];
@@ -894,13 +916,16 @@ function lerFormulario(){
     itensKit: $("ed-itens-kit").value.split(/\r?\n/).map(limparTexto).filter(Boolean).join("\n"),
     noSite: chaveLigada("ch-nosite"), esgotado: !comOpcoes && chaveLigada("ch-esgotado"),
     destaque: chaveLigada("ch-destaque"), novo: chaveLigada("ch-novo"), oferta: chaveLigada("ch-oferta"), kit: chaveLigada("ch-kit"),
+    precoAnterior: chaveLigada("ch-oferta") ? lerPreco($("ed-preco-anterior").value) : null,
     fotos: fotosEmEdicao.slice(0, MAXIMO_FOTOS),
   };
   const ops = comOpcoes ? variacoesEmEdicao.map(o => ({ volume: limparTexto(o.volume), fragrancia: comFragrancia ? limparTexto(o.fragrancia) : "", preco: o.preco, esgotado: o.esgotado, foto: o.foto || "" })) : [];
   if(!f.nome) return [null, null, "Digite o nome do produto."];
   if(!f.categoria) return [null, null, "Digite a categoria (ex: Cabelo, Pele, Corpo)."];
+  const conferirOferta = por => f.precoAnterior && !(f.precoAnterior > por) ? `O preço anterior precisa ser maior que o preço da oferta (${formatarPreco(por)}).` : null;
   if(!comOpcoes){
     if(!(f.preco > 0)) return [null, null, "Digite o preço do produto."];
+    const e = conferirOferta(f.preco); if(e) return [null, null, e];
     return [f, [], null];
   }
   if(ops.length < 2) return [null, null, "Com opções, o produto precisa de pelo menos 2. Se não tem, desligue “Este produto tem opções”."];
@@ -913,6 +938,7 @@ function lerFormulario(){
     if(vistos.has(k)) return [null, null, `A opção ${i + 1} está repetida.`];
     vistos.add(k);
   }
+  const e = conferirOferta(Math.min(...ops.map(o => o.preco))); if(e) return [null, null, e];
   return [f, ops, null];
 }
 async function salvarProduto(){
