@@ -3,10 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Studio Renata Almeida · Links</title>
-<meta name="description" content="Loja, WhatsApp e Instagram do Studio Renata Almeida e da Maison Renata Almeida. Aracaju · SE.">
-<meta name="theme-color" content="#F8F6F1">
-<meta property="og:title" content="Studio Renata Almeida">
+<title>Studio e Maison Renata Almeida</title>
+<meta name="description" content="Loja, WhatsApp, localização e Instagram do Studio e da Maison Renata Almeida.">
+<meta name="theme-color" content="#FFFFFF">
+<meta name="color-scheme" content="light">
+<meta property="og:title" content="Studio e Maison Renata Almeida">
 <meta property="og:description" content="Loja, WhatsApp e Instagram. Invista em você.">
 <meta property="og:image" content="https://studiorenataalmeida.com.br/imagens/site/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="64x64" href="../imagens/site/favicon.png">
@@ -15,19 +16,15 @@
 @font-face{font-family:Montserrat;font-weight:300 700;font-display:swap;src:url(../fontes/montserrat.woff2) format('woff2')}
 @font-face{font-family:'Playfair Display';font-weight:400 700;font-display:swap;src:url(../fontes/playfair.woff2) format('woff2')}
 @font-face{font-family:'Playfair Display';font-style:italic;font-weight:400 700;font-display:swap;src:url(../fontes/playfair-italico.woff2) format('woff2')}
-:root{--fundo:#F8F6F1;--cartao:#FFFFFF;--linha:#E6DDCE;--texto:#171717;--suave:#6B6255;--champagne:#B9986A;--champagne-texto:#93692F;--destaque:#171717;--destaque-texto:#F8F6F1}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--fundo:#12110F;--cartao:#1C1A17;--linha:#2E2A25;--texto:#F1ECE4;--suave:#B5AA99;--champagne:#C8A878;--champagne-texto:#D2B183;--destaque:#C8A878;--destaque-texto:#171717}}
-:root[data-theme="dark"]{--fundo:#12110F;--cartao:#1C1A17;--linha:#2E2A25;--texto:#F1ECE4;--suave:#B5AA99;--champagne:#C8A878;--champagne-texto:#D2B183;--destaque:#C8A878;--destaque-texto:#171717}
+:root{--fundo:#FFFFFF;--cartao:#FAF8F4;--linha:#E6DDCE;--texto:#171717;--suave:#6B6255;--champagne:#B9986A;--champagne-texto:#93692F;--destaque:#171717;--destaque-texto:#F8F6F1}
 *{box-sizing:border-box}
 html,body{margin:0}
 body{min-height:100vh;min-height:100svh;background:var(--fundo);color:var(--texto);font-family:Montserrat,Arial,sans-serif;display:flex;justify-content:center;padding:44px 16px calc(32px + env(safe-area-inset-bottom));-webkit-font-smoothing:antialiased}
 main{width:100%;max-width:440px;display:flex;flex-direction:column;align-items:center}
 .simbolo{width:92px;height:auto;display:block;margin-bottom:18px}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .simbolo{filter:invert(1) sepia(.25) brightness(1.05)}}
-:root[data-theme="dark"] .simbolo{filter:invert(1) sepia(.25) brightness(1.05)}
 .studio{font-size:10px;letter-spacing:.42em;text-transform:uppercase;color:var(--suave);margin:0 0 4px;padding-left:.42em}
 h1{font-family:'Playfair Display',Georgia,serif;font-weight:600;font-size:28px;letter-spacing:.02em;margin:0;text-align:center}
-.lema{font-family:'Playfair Display',Georgia,serif;font-style:italic;color:var(--champagne-texto);font-size:16px;margin:6px 0 4px}
+.lema{font-family:'Playfair Display',Georgia,serif;font-style:italic;color:var(--champagne-texto);font-size:16px;margin:6px 0 26px}
 .local{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--suave);margin:0 0 30px}
 .fio{width:48px;height:1px;background:var(--champagne);margin:0 0 28px}
 nav{width:100%;display:flex;flex-direction:column;gap:12px}
@@ -51,10 +48,9 @@ footer{margin-top:34px;font-size:10.5px;color:var(--suave);text-align:center;let
 <body>
 <main>
   <img class="simbolo" src="../imagens/site/logo-simbolo.png" alt="" width="480" height="342">
-  <p class="studio">Studio</p>
+  <p class="studio">Studio &amp; Maison</p>
   <h1>Renata Almeida</h1>
   <p class="lema">Invista em você.</p>
-  <p class="local">Aracaju · SE</p>
   <div class="fio" aria-hidden="true"></div>
 
   <nav aria-label="Links">
@@ -66,6 +62,12 @@ footer{margin-top:34px;font-size:10.5px;color:var(--suave);text-align:center;let
     <a class="link" href="https://wa.me/557996818305?text=Ol%C3%A1!%20Vim%20pelo%20Instagram." target="_blank" rel="noopener">
       <span class="icone"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l5.06-1.33C8.51 21.5 10.2 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm5.2 14.2c-.22.62-1.28 1.18-1.77 1.24-.45.06-.99.09-2.7-.56-2.27-.88-3.74-3.13-3.85-3.28-.11-.15-.92-1.22-.92-2.33 0-1.11.58-1.65.79-1.87.21-.22.46-.28.61-.28.15 0 .3 0 .43.01.14.01.32-.05.5.38.19.44.64 1.54.7 1.65.06.11.1.24.02.39-.08.15-.12.24-.24.37-.12.13-.25.29-.36.39-.12.11-.24.24-.11.47.14.24.6 1 1.29 1.62.89.79 1.63 1.04 1.87 1.16.24.11.38.09.52-.06.14-.15.6-.7.76-.94.16-.24.32-.2.53-.12.21.08 1.36.64 1.6.76.24.11.4.17.46.27.06.1.06.58-.16 1.2z"/></svg></span>
       <span class="texto"><span class="titulo">WhatsApp</span><span class="sub">(79) 9681-8305</span></span>
+      <svg class="seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 17 17 7M8 7h9v9"/></svg>
+    </a>
+
+    <a class="link" id="link-local" href="https://www.google.com/maps/search/?api=1&amp;query=Studio%20Renata%20Almeida%20Aracaju" target="_blank" rel="noopener">
+      <span class="icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z"/><circle cx="12" cy="10" r="2.4"/></svg></span>
+      <span class="texto"><span class="titulo">Localização</span><span class="sub">Como chegar no Google Maps</span></span>
       <svg class="seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 17 17 7M8 7h9v9"/></svg>
     </a>
 
@@ -82,7 +84,7 @@ footer{margin-top:34px;font-size:10.5px;color:var(--suave);text-align:center;let
     </a>
   </nav>
 
-  <footer>© Studio Renata Almeida</footer>
+  <footer>© Studio e Maison Renata Almeida</footer>
 </main>
 </body>
 </html>
