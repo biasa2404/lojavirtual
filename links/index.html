@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Studio Renata Almeida · Links</title>
+<meta name="description" content="Loja, WhatsApp e Instagram do Studio Renata Almeida e da Maison Renata Almeida. Aracaju · SE.">
+<meta name="theme-color" content="#F8F6F1">
+<meta property="og:title" content="Studio Renata Almeida">
+<meta property="og:description" content="Loja, WhatsApp e Instagram. Invista em você.">
+<meta property="og:image" content="https://studiorenataalmeida.com.br/imagens/site/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="64x64" href="../imagens/site/favicon.png">
+<link rel="apple-touch-icon" href="../imagens/site/apple-touch-icon.png">
+<style>
+@font-face{font-family:Montserrat;font-weight:300 700;font-display:swap;src:url(../fontes/montserrat.woff2) format('woff2')}
+@font-face{font-family:'Playfair Display';font-weight:400 700;font-display:swap;src:url(../fontes/playfair.woff2) format('woff2')}
+@font-face{font-family:'Playfair Display';font-style:italic;font-weight:400 700;font-display:swap;src:url(../fontes/playfair-italico.woff2) format('woff2')}
+:root{--fundo:#F8F6F1;--cartao:#FFFFFF;--linha:#E6DDCE;--texto:#171717;--suave:#6B6255;--champagne:#B9986A;--champagne-texto:#93692F;--destaque:#171717;--destaque-texto:#F8F6F1}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--fundo:#12110F;--cartao:#1C1A17;--linha:#2E2A25;--texto:#F1ECE4;--suave:#B5AA99;--champagne:#C8A878;--champagne-texto:#D2B183;--destaque:#C8A878;--destaque-texto:#171717}}
+:root[data-theme="dark"]{--fundo:#12110F;--cartao:#1C1A17;--linha:#2E2A25;--texto:#F1ECE4;--suave:#B5AA99;--champagne:#C8A878;--champagne-texto:#D2B183;--destaque:#C8A878;--destaque-texto:#171717}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{min-height:100vh;min-height:100svh;background:var(--fundo);color:var(--texto);font-family:Montserrat,Arial,sans-serif;display:flex;justify-content:center;padding:44px 16px calc(32px + env(safe-area-inset-bottom));-webkit-font-smoothing:antialiased}
+main{width:100%;max-width:440px;display:flex;flex-direction:column;align-items:center}
+.simbolo{width:92px;height:auto;display:block;margin-bottom:18px}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .simbolo{filter:invert(1) sepia(.25) brightness(1.05)}}
+:root[data-theme="dark"] .simbolo{filter:invert(1) sepia(.25) brightness(1.05)}
+.studio{font-size:10px;letter-spacing:.42em;text-transform:uppercase;color:var(--suave);margin:0 0 4px;padding-left:.42em}
+h1{font-family:'Playfair Display',Georgia,serif;font-weight:600;font-size:28px;letter-spacing:.02em;margin:0;text-align:center}
+.lema{font-family:'Playfair Display',Georgia,serif;font-style:italic;color:var(--champagne-texto);font-size:16px;margin:6px 0 4px}
+.local{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--suave);margin:0 0 30px}
+.fio{width:48px;height:1px;background:var(--champagne);margin:0 0 28px}
+nav{width:100%;display:flex;flex-direction:column;gap:12px}
+a.link{display:flex;align-items:center;gap:14px;width:100%;min-height:62px;padding:12px 18px;border-radius:999px;border:1px solid var(--linha);background:var(--cartao);color:var(--texto);text-decoration:none;transition:transform .15s,border-color .15s,box-shadow .15s}
+a.link:hover{border-color:var(--champagne);box-shadow:0 6px 18px #0000000d;transform:translateY(-1px)}
+a.link:active{transform:translateY(0)}
+a.link:focus-visible{outline:3px solid var(--champagne);outline-offset:3px}
+a.link.principal{background:var(--destaque);color:var(--destaque-texto);border-color:var(--destaque)}
+a.link.principal .sub{color:inherit;opacity:.75}
+a.link.principal .icone{background:#ffffff1f;color:inherit}
+.icone{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;flex-shrink:0;background:color-mix(in srgb,var(--champagne) 16%,transparent);color:var(--champagne-texto)}
+.icone svg{width:20px;height:20px}
+.texto{display:flex;flex-direction:column;min-width:0;flex:1}
+.titulo{font-weight:600;font-size:14px;line-height:1.3}
+.sub{font-size:11.5px;color:var(--suave);line-height:1.4;margin-top:1px}
+.seta{width:16px;height:16px;flex-shrink:0;opacity:.55}
+.rotulo{width:100%;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--suave);margin:14px 0 0;padding-left:20px}
+footer{margin-top:34px;font-size:10.5px;color:var(--suave);text-align:center;letter-spacing:.04em}
+</style>
+</head>
+<body>
+<main>
+  <img class="simbolo" src="../imagens/site/logo-simbolo.png" alt="" width="480" height="342">
+  <p class="studio">Studio</p>
+  <h1>Renata Almeida</h1>
+  <p class="lema">Invista em você.</p>
+  <p class="local">Aracaju · SE</p>
+  <div class="fio" aria-hidden="true"></div>
+
+  <nav aria-label="Links">
+    <a class="link principal" href="https://studiorenataalmeida.com.br/">
+      <span class="icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8L5 8Z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg></span>
+      <span class="texto"><span class="titulo">Loja de produtos</span><span class="sub">Malibu, La Vertuan e mais. Peça pelo site</span></span>
+      <svg class="seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 17 17 7M8 7h9v9"/></svg>
+    </a>
+    <a class="link" href="https://wa.me/557996818305?text=Ol%C3%A1!%20Vim%20pelo%20Instagram." target="_blank" rel="noopener">
+      <span class="icone"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l5.06-1.33C8.51 21.5 10.2 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm5.2 14.2c-.22.62-1.28 1.18-1.77 1.24-.45.06-.99.09-2.7-.56-2.27-.88-3.74-3.13-3.85-3.28-.11-.15-.92-1.22-.92-2.33 0-1.11.58-1.65.79-1.87.21-.22.46-.28.61-.28.15 0 .3 0 .43.01.14.01.32-.05.5.38.19.44.64 1.54.7 1.65.06.11.1.24.02.39-.08.15-.12.24-.24.37-.12.13-.25.29-.36.39-.12.11-.24.24-.11.47.14.24.6 1 1.29 1.62.89.79 1.63 1.04 1.87 1.16.24.11.38.09.52-.06.14-.15.6-.7.76-.94.16-.24.32-.2.53-.12.21.08 1.36.64 1.6.76.24.11.4.17.46.27.06.1.06.58-.16 1.2z"/></svg></span>
+      <span class="texto"><span class="titulo">WhatsApp</span><span class="sub">(79) 9681-8305</span></span>
+      <svg class="seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 17 17 7M8 7h9v9"/></svg>
+    </a>
+
+    <p class="rotulo">Instagram</p>
+    <a class="link" href="https://www.instagram.com/studiorenataalmeida/" target="_blank" rel="noopener">
+      <span class="icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r=".9" fill="currentColor" stroke="none"/></svg></span>
+      <span class="texto"><span class="titulo">Studio Renata Almeida</span><span class="sub">@studiorenataalmeida</span></span>
+      <svg class="seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 17 17 7M8 7h9v9"/></svg>
+    </a>
+    <a class="link" href="https://www.instagram.com/maisonrenataalmeida/" target="_blank" rel="noopener">
+      <span class="icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r=".9" fill="currentColor" stroke="none"/></svg></span>
+      <span class="texto"><span class="titulo">Maison Renata Almeida</span><span class="sub">@maisonrenataalmeida</span></span>
+      <svg class="seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 17 17 7M8 7h9v9"/></svg>
+    </a>
+  </nav>
+
+  <footer>© Studio Renata Almeida</footer>
+</main>
+</body>
+</html>
