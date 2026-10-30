@@ -320,15 +320,15 @@ main{max-width:960px;margin:0 auto;padding:18px 16px 120px}
 // Painel do catálogo do Studio Renata Almeida, ligado à planilha do Google pelo Apps Script.
 // Lê e grava pelo Apps Script (Codigo.gs). Nada é apagado: excluir marca a coluna Situação
 // como "Excluído" (o produto some do site e pode ser restaurado).
-// Quando o banco (Supabase) entrar, o painel de lá é o admin-supabase.html.
+// Quando o banco (Supabase) entrar, o painel de lá é o admin-supabase.html (guardado fora do site).
 const URL_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbwAZHuSA4dlSAq0_wjVGtWd_cjZDv_BPI1TFOKS72VQQib-ZUtgoVPxkQ_94TMhHSKf/exec";
 const URL_BASE_IMAGENS_GITHUB = "https://raw.githubusercontent.com/biasa2404/lojavirtual/main/imagens/";
-const CHAVE_SENHA = "studio_painel_senha";
+const CHAVE_SESSAO = "studio_painel_sessao";   // código de sessão dado pelo Apps Script (a senha nunca é guardada)
 const MAXIMO_FOTOS = 5;
 const TAMANHO_MAXIMO_FOTO_PX = 1600;
 const QUALIDADE_JPEG = 0.85;
 
-let senha = "";
+let sessao = "";
 let produtos = [];            // linhas da aba do catálogo (objetos com os nomes das colunas)
 let opcoes = [];              // linhas da aba de combinações
 let whatsappLoja = "";
@@ -418,7 +418,7 @@ async function buscarScript(url, opcoes){
 async function chamarScript(dados){
   // "text/plain" de propósito: com application/json o navegador faz uma consulta antes (preflight)
   // que o Apps Script não responde, e o envio falha.
-  const r = await buscarScript(URL_APPS_SCRIPT, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(Object.assign({ senha }, dados)) });
+  const r = await buscarScript(URL_APPS_SCRIPT, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(Object.assign({ token: sessao }, dados)) });
   const d = await lerResposta(r);
   if(!d.ok) throw Object.assign(new Error(d.erro || "Falha"), { doScript: true, codigo: d.codigo });
   return d;
@@ -426,10 +426,7 @@ async function chamarScript(dados){
 // "dados" = a lista que o Apps Script já devolve depois de salvar (sem ela, busca de novo).
 async function carregarTudo(dados){
   let d = dados;
-  if(!d){
-    const r = await buscarScript(`${URL_APPS_SCRIPT}?listar=1&t=${Date.now()}`, { cache: "no-store" });
-    d = await lerResposta(r);
-  }
+  if(!d) d = await chamarScript({ acao: "listar" });
   if(!d.ok) throw Object.assign(new Error(d.erro || "Falha"), { doScript: true });
   if(!Array.isArray(d.opcoes)) throw Object.assign(new Error("O Apps Script ainda é o antigo. Cole o código novo (Codigo.gs) e publique uma nova versão."), { doScript: true });
   produtos = d.produtos || [];
@@ -442,14 +439,22 @@ async function carregarTudo(dados){
   $("qtd-encomendas").hidden = !pend; $("qtd-encomendas").textContent = pend;
 }
 function tratarErro(e, padrao){
-  if(e && e.codigo === "senha"){ sair(); mostrarAviso("erro", "A senha mudou ou está incorreta. Entre de novo."); return; }
+  if(e && e.codigo === "senha"){ sair(true); mostrarAviso("erro", e.message || "Entre de novo com a senha."); return; }
   mostrarAviso("erro", e && e.doScript ? e.message : padrao + " Confira sua internet e tente de novo.");
 }
 
-// ===================== senha =====================
-function sair(){
-  senha = "";
-  try{ localStorage.removeItem(CHAVE_SENHA); }catch(e){}
+// ===================== login =====================
+function guardarSessao(t, lembrar){
+  sessao = t || "";
+  try{
+    localStorage.removeItem("studio_painel_senha"); // versão antiga guardava a senha: apaga
+    localStorage.removeItem(CHAVE_SESSAO); sessionStorage.removeItem(CHAVE_SESSAO);
+    if(sessao) (lembrar ? localStorage : sessionStorage).setItem(CHAVE_SESSAO, sessao);
+  }catch(e){}
+}
+function sair(semAvisarServidor){
+  if(sessao && !semAvisarServidor) chamarScript({ acao: "sair" }).catch(() => {});
+  guardarSessao("");
   $("conta-senha").value = "";
   esconderAviso();
   mostrarTela("entrar");
@@ -461,14 +466,14 @@ async function enviarEntrar(){
   const btn = $("btn-entrar");
   ocupado(btn, "Entrando...");
   try{
-    senha = s;
-    const rc = await chamarScript({ acao: "conferir" });
-    try{ if($("lembrar").checked) localStorage.setItem(CHAVE_SENHA, s); else localStorage.removeItem(CHAVE_SENHA); }catch(e){}
+    const rc = await chamarScript({ acao: "entrar", senha: s });
+    if(!rc.token) throw Object.assign(new Error("O Apps Script ainda é o antigo. Cole o código novo (Codigo.gs) e publique uma Nova versão."), { doScript: true });
+    guardarSessao(rc.token, $("lembrar").checked);
     $("conta-senha").value = "";
     await abrirLista(rc.dados);
   }catch(e){
-    senha = "";
-    mostrarAviso("erro", e.codigo === "senha" ? "Senha incorreta." : e.doScript ? e.message : "Não consegui falar com a planilha. Confira sua internet e tente de novo.");
+    guardarSessao("");
+    mostrarAviso("erro", e.codigo === "senha" ? e.message : e.doScript ? e.message : "Não consegui falar com a planilha. Confira sua internet e tente de novo.");
   }finally{ livre(btn); }
 }
 async function abrirLista(dados){
@@ -961,8 +966,8 @@ async function salvarLoja(){
 
 // ===================== início =====================
 (function iniciar(){
-  try{ senha = localStorage.getItem(CHAVE_SENHA) || ""; }catch(e){ senha = ""; }
-  if(senha) abrirLista();
+  try{ localStorage.removeItem("studio_painel_senha"); sessao = localStorage.getItem(CHAVE_SESSAO) || sessionStorage.getItem(CHAVE_SESSAO) || ""; }catch(e){ sessao = ""; }
+  if(sessao) abrirLista();
   else mostrarTela("entrar");
 })();
 </script>
