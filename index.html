@@ -1340,6 +1340,7 @@ header.top::after{height:2px!important;background:var(--champagne)!important}
 .opcoes-variacao .opcao-pagamento.encomenda:not(.selecionada){color:var(--texto-suave)}
 .nota-encomenda{flex-basis:100%;font-size:11px;color:var(--champagne-texto,#93692F);margin-top:8px;text-align:center}
 #rodape-produto-modal{flex-wrap:wrap}
+.aviso-reserva{font-size:12px;line-height:1.55;color:var(--texto);background:var(--grafite-3);border-left:3px solid var(--champagne,#B9986A);border-radius:4px;padding:11px 13px;margin:0 0 14px}
 .item-encomenda{display:inline-block;margin-top:4px;font-size:10px;font-weight:600;color:var(--champagne-texto,#93692F);border:1px dashed currentColor;border-radius:999px;padding:1px 8px}
 
 /* 29/10: celular mais enxuto — produtos aparecem mais cedo; "Recomendados" inteiro */
@@ -1539,6 +1540,7 @@ header.top::after{height:2px!important;background:var(--champagne)!important}
         </div>
       </div>
 
+      <div class="aviso-reserva" id="aviso-reserva"><b>Importante:</b> A reserva dos produtos e as encomendas só são feitas mediante pagamento. <span id="aviso-reserva-extra"></span></div>
       <button class="btn-whatsapp" id="btn-enviar-whatsapp" disabled>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l5.06-1.33C8.51 21.5 10.2 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm5.2 14.2c-.22.62-1.28 1.18-1.77 1.24-.45.06-.99.09-2.7-.56-2.27-.88-3.74-3.13-3.85-3.28-.11-.15-.92-1.22-.92-2.33 0-1.11.58-1.65.79-1.87.21-.22.46-.28.61-.28.15 0 .3 0 .43.01.14.01.32-.05.5.38.19.44.64 1.54.7 1.65.06.11.1.24.02.39-.08.15-.12.24-.24.37-.12.13-.25.29-.36.39-.12.11-.24.24-.11.47.14.24.6 1 1.29 1.62.89.79 1.63 1.04 1.87 1.16.24.11.38.09.52-.06.14-.15.6-.7.76-.94.16-.24.32-.2.53-.12.21.08 1.36.64 1.6.76.24.11.4.17.46.27.06.1.06.58-.16 1.2z"/></svg>
         Revisar e continuar no WhatsApp
@@ -2807,7 +2809,7 @@ function renderRodapeProdutoModal(){
   const chave = chaveCarrinho(p.id, p, selecaoVariacaoAtual);
   const qtd = carrinho[chave]?.qtd || 0;
   const encomenda = ehEncomenda(p, selecaoVariacaoAtual);
-  const nota = encomenda ? `<div class="nota-encomenda">Esgotado no momento. Você pode encomendar: o Studio confirma o prazo pelo WhatsApp.</div>` : "";
+  const nota = encomenda ? `<div class="nota-encomenda">Esgotado no momento. <b>A encomenda só é feita mediante pagamento.</b> O Studio confirma o prazo pelo WhatsApp.</div>` : "";
 
   if(qtd > 0){
     rodape.innerHTML = `
@@ -3135,6 +3137,7 @@ function renderCarrinho(){
   }).join("");
 
   document.getElementById("total-carrinho").textContent = formatarPreco(totalComAcrescimo());
+  document.getElementById("aviso-reserva-extra").textContent = itens.some(([, i]) => i.encomenda) ? "Os itens sob encomenda só são pedidos ao fornecedor depois do pagamento." : "";
 
   const opcoesEntregaEl = document.getElementById("opcoes-entrega");
   opcoesEntregaEl.innerHTML = OPCOES_ENTREGA.map(o => `
@@ -3422,6 +3425,7 @@ function montarMensagemWhatsapp(idPedido){
   } else {
     msg += `\n\n*Retirada no local*`;
   }
+  msg += `\n\n*Importante:* A reserva dos produtos e as encomendas só são feitas mediante pagamento.`;
   return msg;
 }
 
@@ -3439,7 +3443,7 @@ function montarPreviaVisual(idPedido){
     ? `<b>Total: ${formatarPreco(totalComAcrescimo())}</b>\nPagamento: ${escapeHtml(nomePagamento)}${parcelasEscolhidas > 1 ? ` — em ${parcelasEscolhidas}x de ${formatarPreco(valorParcela())}` : " — à vista"}`
     : `<b>Total: ${formatarPreco(totalCarrinho())}</b>\nPagamento: ${escapeHtml(nomePagamento)}`;
   const linhaTabela = tabelaDePrecoDoPedido() ? `Tabela de preço: ${tabelaDePrecoDoPedido()}\n` : "";
-  return `<b>Novo pedido — Studio Renata Almeida</b>\nPedido: #${idPedido}\n${linhaTabela}Cliente: ${escapeHtml(nomeCliente)}\n\n${linhas}\n\n${blocoPagamento}\n\n${blocoEntrega}`;
+  return `<b>Novo pedido — Studio Renata Almeida</b>\nPedido: #${idPedido}\n${linhaTabela}Cliente: ${escapeHtml(nomeCliente)}\n\n${linhas}\n\n${blocoPagamento}\n\n${blocoEntrega}\n\n<b>Importante:</b> A reserva dos produtos e as encomendas só são feitas mediante pagamento.`;
 }
 
 function abrirPreviaEnvio(){
@@ -3569,7 +3573,7 @@ function configurarAcessibilidadeVisual(){
  document.getElementById('seta-galeria-esquerda').setAttribute('aria-label','Foto anterior');
  document.getElementById('seta-galeria-direita').setAttribute('aria-label','Próxima foto');
  const baseAdd=alterarQtd;
- alterarQtd=function(chave,delta){baseAdd(chave,delta);if(delta>0)vToast('Quantidade atualizada no seu pedido.');};
+ alterarQtd=function(chave,delta){baseAdd(chave,delta);if(delta>0)vToast(carrinho[String(chave)]?.encomenda?'Encomenda anotada. Ela só é feita mediante pagamento.':'Quantidade atualizada no seu pedido.');};
 }
 
 /* =========================================================
