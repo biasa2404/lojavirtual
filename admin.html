@@ -45,6 +45,11 @@ main{max-width:960px;margin:0 auto;padding:18px 16px 120px}
 .aviso.sucesso{background:#E6EFE6;color:var(--ok)}
 .aviso.info{background:var(--bege);color:var(--texto)}
 .aviso.flutuante{position:fixed;left:16px;right:16px;top:12px;z-index:60;margin:0 auto;max-width:640px;box-shadow:0 8px 24px #0000002a}
+.tipos-opcao{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.tipos-opcao .marcador{padding:8px 12px;border:1px solid var(--linha);border-radius:999px;background:var(--fundo);margin:0}
+.tipos-opcao .marcador:has(input:checked){border-color:var(--champagne);background:#fff}
+.novo-tipo{display:flex;gap:8px;margin-top:10px}.novo-tipo input{flex:1;min-width:0}.novo-tipo .btn{white-space:nowrap}
+.dica-tipos{font-size:13px;color:var(--suave);margin:6px 0 0}
 .aviso .fechar{margin-left:auto;font-size:18px;line-height:1;color:inherit;padding:0 4px}
 
 .cartao{background:var(--cartao);border:1px solid var(--linha);border-radius:14px;padding:18px}
@@ -269,11 +274,14 @@ main{max-width:960px;margin:0 auto;padding:18px 16px 120px}
     </div>
 
     <div class="cartao secao">
-      <h3>Opções (volume, fragrância...)</h3>
-      <p class="desc">Use quando o mesmo produto tem volumes ou fragrâncias diferentes. Cada opção pode ter preço, foto e estoque próprios.</p>
+      <h3>Opções (cor, volume, fragrância...)</h3>
+      <p class="desc">Use quando o mesmo produto tem cores, volumes ou fragrâncias diferentes. Cada opção pode ter preço, foto e estoque próprios.</p>
       <button type="button" class="chave" id="ch-variacoes" onclick="alternarVariacoes()"><span><div class="t">Este produto tem opções</div><div class="d">A cliente escolhe a opção antes de pôr no pedido.</div></span><span class="interruptor"></span></button>
       <div id="bloco-variacoes" hidden>
-        <label class="marcador" style="margin-top:14px"><input type="checkbox" id="ed-usa-fragrancia" onchange="renderizarVariacoes(true)"> As opções têm fragrância</label>
+        <div class="campo" style="margin-top:14px"><label>O que muda entre as opções?</label>
+          <div class="tipos-opcao" id="tipos-opcao"></div>
+          <div class="novo-tipo"><input id="novo-tipo" maxlength="30" placeholder="Outro tipo (ex: Tamanho)" onkeydown="if(event.key==='Enter'){event.preventDefault();criarTipoOpcao()}"><button type="button" class="btn btn-borda" onclick="criarTipoOpcao()">+ Criar tipo</button></div>
+        </div>
         <div class="variacoes" id="variacoes"></div>
         <button type="button" class="btn btn-borda" style="margin-top:12px" onclick="adicionarVariacao()">+ Adicionar opção</button>
       </div>
@@ -344,7 +352,11 @@ let filtroEncomendas = "Pendente";         // {tipo, nome, modo: "renomear" | "e
 let filtroAtual = "ativos";
 let grupoEmEdicao = null;
 let fotosEmEdicao = [];       // link (texto) ou {base64, previa}
-let variacoesEmEdicao = [];   // [{volume, fragrancia, preco, esgotado, foto}]
+let variacoesEmEdicao = [];   // [{valores: {Cor: "Nude", Volume: "30ml"}, preco, esgotado, foto}]
+let tiposEmEdicao = [];       // tipos marcados no produto aberto, ex. ["Cor", "Volume"]
+let tiposDaPlanilha = [];     // colunas de tipo da aba de opções (vêm do Apps Script)
+const TIPOS_PADRAO = ["Cor", "Volume", "Fragrância"];
+const EXEMPLO_TIPO = { Cor: "Ex: Nude", Volume: "Ex: 300ml", "Fragrância": "Ex: Lavanda", Tamanho: "Ex: M" };
 
 // ===================== utilidades =====================
 function $(id){ return document.getElementById(id); }
@@ -436,6 +448,7 @@ async function carregarTudo(dados){
   if(!Array.isArray(d.opcoes)) throw Object.assign(new Error("O Apps Script ainda é o antigo. Cole o código novo (Codigo.gs) e publique uma nova versão."), { doScript: true });
   produtos = d.produtos || [];
   opcoes = d.opcoes || [];
+  tiposDaPlanilha = Array.isArray(d.tiposOpcao) ? d.tiposOpcao : ["Volume", "Fragrância"];
   whatsappLoja = (d.whatsapp && d.whatsapp.valor) || "";
   listas = Array.isArray(d.listas) ? d.listas : [];
   planilhaInfo = d.planilha || null;
@@ -495,8 +508,12 @@ function montarGrupos(){
   opcoes.forEach(o => { const id = String(o["ID do produto"]).trim(); (porId[id] = porId[id] || []).push(o); });
   return produtos.map(p => {
     const id = String(p["ID"]).trim(), base = numeroDaPlanilha(p["Preço (R$)"]);
-    const ops = (porId[id] || []).filter(o => limparTexto(o["Volume"]) || limparTexto(o["Fragrância"])).map(o => ({
-      volume: limparTexto(o["Volume"]), fragrancia: limparTexto(o["Fragrância"]),
+    const ops = (porId[id] || []).map(o => {
+      const valores = {};
+      todosOsTipos().forEach(t => { const v = limparTexto(o[t]); if(v) valores[t] = v; });
+      return { o, valores };
+    }).filter(x => Object.keys(x.valores).length).map(({ o, valores }) => ({
+      valores,
       preco: Math.round((base + numeroDaPlanilha(o["Ajuste de preço"])) * 100) / 100,
       esgotado: /^n[aã]o$/i.test(String(o["Disponível?"] ?? "").trim()),
       foto: String(o["Imagem da variação (URL)"] || "").trim(),
@@ -505,7 +522,7 @@ function montarGrupos(){
     const precos = ops.length ? ops.map(o => o.preco) : [base];
     return {
       id, linha: p, nome: limparTexto(p["Produto"]), marca: limparTexto(p["Marca"]), categoria: limparTexto(p["Categoria"]),
-      preco: base, opcoes: ops,
+      preco: base, opcoes: ops, tipos: todosOsTipos().filter(t => ops.some(o => o.valores[t])),
       excluido: sit.startsWith("exclu"), noSite: !sit.startsWith("fora") && !sit.startsWith("exclu"),
       esgotado: sit.startsWith("esgot") || (ops.length > 0 && ops.every(o => o.esgotado)),
       precoMin: Math.min(...precos), precoMax: Math.max(...precos),
@@ -820,7 +837,8 @@ function abrirEdicao(id){
   renderizarFotos();
   variacoesEmEdicao = g ? g.opcoes.map(o => Object.assign({}, o)) : [];
   const temOpcoes = variacoesEmEdicao.length > 0;
-  $("ed-usa-fragrancia").checked = variacoesEmEdicao.some(o => o.fragrancia);
+  variacoesEmEdicao.forEach(o => o.valores = Object.assign({}, o.valores));
+  tiposEmEdicao = g ? g.tipos.slice() : [];
   definirChave("ch-variacoes", temOpcoes);
   $("bloco-variacoes").hidden = !temOpcoes;
   $("bloco-preco").hidden = temOpcoes;
@@ -862,6 +880,13 @@ async function adicionarFotos(input){
 }
 
 // ----- opções -----
+// Tipos que existem: os da aba de opções + os padrão + os criados agora (entram na planilha ao salvar).
+function todosOsTipos(){
+  const lista = [];
+  TIPOS_PADRAO.concat(tiposDaPlanilha, tiposEmEdicao).forEach(t => { if(t && !lista.some(x => semAcento(x) === semAcento(t))) lista.push(t); });
+  return lista;
+}
+function novaVariacao(preco){ return { valores: {}, preco, esgotado: false, foto: "" }; }
 function alternarVariacoes(){
   const ligar = !chaveLigada("ch-variacoes");
   if(!ligar && variacoesEmEdicao.length > 1 && !confirm("Desligar as opções? O produto fica com um preço só e as opções saem.")) return;
@@ -872,34 +897,51 @@ function alternarVariacoes(){
   $("ch-esgotado").hidden = ligar;
   if(ligar && !variacoesEmEdicao.length){
     const preco = lerPreco($("ed-preco").value);
-    variacoesEmEdicao = [{ volume: "", fragrancia: "", preco, esgotado: false, foto: "" }, { volume: "", fragrancia: "", preco, esgotado: false, foto: "" }];
+    variacoesEmEdicao = [novaVariacao(preco), novaVariacao(preco)];
   }
   if(!ligar && variacoesEmEdicao.length){
     const menor = Math.min(...variacoesEmEdicao.map(o => o.preco).filter(n => n > 0));
     if(isFinite(menor)) $("ed-preco").value = precoParaCampo(menor);
     variacoesEmEdicao = [];
+    tiposEmEdicao = [];
   }
   renderizarVariacoes();
+}
+function marcarTipo(tipo, marcado){
+  lerVariacoesDaTela();
+  if(marcado && !tiposEmEdicao.includes(tipo)) tiposEmEdicao.push(tipo);
+  if(!marcado) tiposEmEdicao = tiposEmEdicao.filter(t => t !== tipo);
+  renderizarVariacoes();
+}
+function criarTipoOpcao(){
+  const nome = limparTexto($("novo-tipo").value).replace(/^./, c => c.toUpperCase());
+  if(!nome) return $("novo-tipo").focus();
+  if(/^(id|pre[cç]o|ajuste|dispon|imagem|foto|sub ?id|c[oó]digo)/i.test(semAcento(nome))) return mostrarAviso("erro", `“${nome}” não pode ser tipo de opção. Use outro nome.`);
+  const existe = todosOsTipos().find(t => semAcento(t) === semAcento(nome));
+  $("novo-tipo").value = "";
+  marcarTipo(existe || nome, true);
+  const campos = document.querySelectorAll(`#variacoes [data-tipo="${CSS.escape(existe || nome)}"]`);
+  if(campos[0]) campos[0].focus();
 }
 function lerVariacoesDaTela(){
   document.querySelectorAll("#variacoes .variacao").forEach((el, i) => {
     const v = variacoesEmEdicao[i]; if(!v) return;
-    v.volume = el.querySelector("[data-c=v1]").value;
-    const f = el.querySelector("[data-c=v2]"); if(f) v.fragrancia = f.value;
+    el.querySelectorAll("[data-tipo]").forEach(inp => { v.valores[inp.dataset.tipo] = inp.value; });
     v.preco = lerPreco(el.querySelector("[data-c=preco]").value);
     v.esgotado = el.querySelector("[data-c=esgotado]").checked;
   });
 }
-function renderizarVariacoes(soRotulos){
-  if(soRotulos) lerVariacoesDaTela();
-  const comFragrancia = $("ed-usa-fragrancia").checked;
+function tiposMarcados(){ return todosOsTipos().filter(t => tiposEmEdicao.includes(t)); }
+function renderizarVariacoes(){
+  $("tipos-opcao").innerHTML = todosOsTipos().map(t => `<label class="marcador"><input type="checkbox" ${tiposEmEdicao.includes(t) ? "checked" : ""} onchange="marcarTipo(this.dataset.t, this.checked)" data-t="${escaparHtml(t)}"> ${escaparHtml(t)}</label>`).join("")
+    + (tiposEmEdicao.length ? "" : `<p class="dica-tipos">Marque pelo menos um tipo. Ex: maquiagem → Cor; shampoo → Volume e Fragrância.</p>`);
+  const tipos = tiposMarcados();
   $("variacoes").innerHTML = variacoesEmEdicao.map((v, i) => `
     <div class="variacao">
       <label class="foto-var" title="Foto desta opção">${v.foto ? htmlImagem(v.foto) : `<span>+ foto da opção</span>`}
         <input type="file" accept="image/*,.heic,.heif" onchange="fotoDaVariacao(${i}, this)"></label>
       <div class="campos-var">
-        <div class="campo"><label>Volume</label><input data-c="v1" maxlength="40" value="${escaparHtml(v.volume)}" placeholder="Ex: 300ml"></div>
-        ${comFragrancia ? `<div class="campo"><label>Fragrância</label><input data-c="v2" maxlength="40" value="${escaparHtml(v.fragrancia)}"></div>` : ""}
+        ${tipos.map(t => `<div class="campo"><label>${escaparHtml(t)}</label><input data-tipo="${escaparHtml(t)}" maxlength="40" value="${escaparHtml(v.valores[t] || "")}" placeholder="${escaparHtml(EXEMPLO_TIPO[t] || "")}"></div>`).join("")}
         <div class="campo"><label>Preço</label><input data-c="preco" inputmode="decimal" value="${escaparHtml(precoParaCampo(v.preco))}" oninput="mascararPreco(this)" placeholder="R$ 0,00"></div>
       </div>
       <div class="rodape-var">
@@ -912,10 +954,10 @@ function renderizarVariacoes(soRotulos){
 function adicionarVariacao(){
   lerVariacoesDaTela();
   const ult = variacoesEmEdicao[variacoesEmEdicao.length - 1];
-  variacoesEmEdicao.push({ volume: "", fragrancia: "", preco: ult ? ult.preco : lerPreco($("ed-preco").value), esgotado: false, foto: "" });
+  variacoesEmEdicao.push(novaVariacao(ult ? ult.preco : lerPreco($("ed-preco").value)));
   renderizarVariacoes();
-  const campos = document.querySelectorAll("#variacoes [data-c=v1]");
-  campos[campos.length - 1].focus();
+  const campos = document.querySelectorAll("#variacoes .variacao:last-child input[data-tipo]");
+  if(campos[0]) campos[0].focus();
 }
 function removerVariacao(i){ lerVariacoesDaTela(); variacoesEmEdicao.splice(i, 1); renderizarVariacoes(); }
 async function fotoDaVariacao(i, input){
@@ -930,7 +972,7 @@ async function fotoDaVariacao(i, input){
 // ----- salvar -----
 function lerFormulario(){
   lerVariacoesDaTela();
-  const comOpcoes = chaveLigada("ch-variacoes"), comFragrancia = $("ed-usa-fragrancia").checked;
+  const comOpcoes = chaveLigada("ch-variacoes"), tipos = tiposMarcados();
   const f = {
     id: grupoEmEdicao ? grupoEmEdicao.id : null,
     nome: limparTexto($("ed-nome").value), marca: limparTexto($("ed-marca").value), categoria: limparTexto($("ed-categoria").value),
@@ -941,7 +983,8 @@ function lerFormulario(){
     precoAnterior: chaveLigada("ch-oferta") ? lerPreco($("ed-preco-anterior").value) : null,
     fotos: fotosEmEdicao.slice(0, MAXIMO_FOTOS),
   };
-  const ops = comOpcoes ? variacoesEmEdicao.map(o => ({ volume: limparTexto(o.volume), fragrancia: comFragrancia ? limparTexto(o.fragrancia) : "", preco: o.preco, esgotado: o.esgotado, foto: o.foto || "" })) : [];
+  const ops = comOpcoes ? variacoesEmEdicao.map(o => ({ valores: Object.fromEntries(tipos.map(t => [t, limparTexto(o.valores[t])])), preco: o.preco, esgotado: o.esgotado, foto: o.foto || "" })) : [];
+  f.tipos = comOpcoes ? tipos : [];
   if(!f.nome) return [null, null, "Digite o nome do produto."];
   if(!f.categoria) return [null, null, "Digite a categoria (ex: Cabelo, Pele, Corpo)."];
   const conferirOferta = por => f.precoAnterior && !(f.precoAnterior > por) ? `O preço anterior precisa ser maior que o preço da oferta (${formatarPreco(por)}).` : null;
@@ -950,13 +993,15 @@ function lerFormulario(){
     const e = conferirOferta(f.preco); if(e) return [null, null, e];
     return [f, [], null];
   }
+  if(!tipos.length) return [null, null, "Marque o que muda entre as opções (ex: Cor, Volume)."];
   if(ops.length < 2) return [null, null, "Com opções, o produto precisa de pelo menos 2. Se não tem, desligue “Este produto tem opções”."];
   const vistos = new Set();
   for(let i = 0; i < ops.length; i++){
     const o = ops[i];
-    if(!o.volume || (comFragrancia && !o.fragrancia)) return [null, null, `Preencha ${comFragrancia ? "volume e fragrância" : "o volume"} da opção ${i + 1}.`];
+    const falta = tipos.find(t => !o.valores[t]);
+    if(falta) return [null, null, `Preencha ${tipos.length > 1 ? tipos.join(" e ").toLowerCase() : falta.toLowerCase()} da opção ${i + 1}.`];
     if(!(o.preco > 0)) return [null, null, `Digite o preço da opção ${i + 1}.`];
-    const k = semAcento(o.volume + "|" + o.fragrancia);
+    const k = semAcento(tipos.map(t => o.valores[t]).join("|"));
     if(vistos.has(k)) return [null, null, `A opção ${i + 1} está repetida.`];
     vistos.add(k);
   }

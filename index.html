@@ -1985,13 +1985,15 @@ function analisarCSV(texto, colunasEsperadas){
   if(indiceCabecalho === -1) indiceCabecalho = 0; // não achou: tenta a primeira linha mesmo
 
   const cabecalho = linhas[indiceCabecalho].map(c => c.trim().toLowerCase());
-  return linhas.slice(indiceCabecalho + 1)
+  const resultado = linhas.slice(indiceCabecalho + 1)
     .filter(l => l.some(c => c.trim() !== ""))
     .map(l => {
       const obj = {};
       cabecalho.forEach((nomeCol, i) => obj[nomeCol] = (l[i] || "").trim());
       return obj;
     });
+  resultado.cabecalho = linhas[indiceCabecalho].map(c => c.trim()); // nomes como estão na planilha
+  return resultado;
 }
 
 function paraNumero(texto){
@@ -2114,7 +2116,7 @@ async function buscarPlanilha(qual, urlPublicada){
   return buscarComTimeout(urlPublicada, 8000);
 }
 
-const ATRIBUTOS_VARIACAO = ["Volume", "Fragrância"]; // ordem de exibição quando o produto não diz outra
+const ATRIBUTOS_VARIACAO = ["Cor", "Volume", "Fragrância"]; // ordem de exibição quando o produto não diz outra
 
 async function buscarCombinacoesDaPlanilha(){
   if(!URL_PLANILHA_VARIACOES_CSV) return {};
@@ -2123,7 +2125,10 @@ async function buscarCombinacoesDaPlanilha(){
     if(!resposta.ok) throw new Error("Falha ao buscar combinações");
     const texto = await resposta.text();
     await garantirListaDeImagens();
-    const linhas = analisarCSV(texto, ["volume", "fragrância"]);
+    const linhas = analisarCSV(texto, ["id do produto"]);
+    // Tipos de opção = colunas que não são ID/ajuste/disponível/imagem (Cor, Volume, Fragrância, Tamanho...).
+    const naoETipo = /^(id do produto|id|ajuste|disponivel|imagem|foto|sub ?id|codigo|preco|obs)/;
+    const tiposDaAba = linhas.cabecalho.filter(c => c && !naoETipo.test(normalizar(c)));
 
     const porProduto = {};
     linhas.forEach(l => {
@@ -2136,19 +2141,22 @@ async function buscarCombinacoesDaPlanilha(){
       // Se a coluna de imagem estiver vazia mas tiver Sub ID preenchido, monta o link
       // sozinho a partir da pasta padrão configurada (URL_BASE_IMAGENS + nome do arquivo).
       const imagem = resolverImagem(imagemDireta || subId);
+      const opcoes = {};
+      tiposDaAba.forEach(t => { const v = (l[t.toLowerCase()] || "").trim(); if(v) opcoes[t] = v; });
       const combo = {
-        volume: (l["volume"] || "").trim(),
-        "fragrância": (l["fragrância"] || l["fragrancia"] || "").trim(),
+        opcoes,
         ajuste: paraNumero(l["ajuste de preço"] || l["ajuste de preco"] || l["ajuste"] || "0"),
         disponivel: disponivelTexto !== "não" && disponivelTexto !== "nao",
         imagem,
       };
       // ignora linha sem nenhum atributo preenchido (linha em branco de sobra na planilha)
-      if(!combo.volume && !combo["fragrância"]) return;
+      if(!Object.keys(opcoes).length) return;
 
       if(!porProduto[idProduto]) porProduto[idProduto] = [];
       porProduto[idProduto].push(combo);
     });
+    // ordem dos tipos de cada produto = ordem das colunas na planilha
+    Object.values(porProduto).forEach(lista => { lista.tipos = tiposDaAba.filter(t => lista.some(c => c.opcoes[t])); });
     return porProduto;
   }catch(e){
     console.warn("Não foi possível carregar as combinações de variação da planilha.", e);
@@ -2328,6 +2336,7 @@ async function carregarProdutosDaPlanilha(){
         imagens,
         imagem: imagens[0] || "", // mantido por compatibilidade com o cache antigo
         combinacoes: combinacoesPorProduto[id] || null,
+        tiposVariacao: (combinacoesPorProduto[id] && combinacoesPorProduto[id].tipos) || null,
         esgotado: /^esgot/.test(normalizar(l["situação"] || l["situacao"] || "")) ||
           (!!combinacoesPorProduto[id] && combinacoesPorProduto[id].every(c => c.disponivel === false)),
       };
