@@ -1861,7 +1861,7 @@ let pedidoRecemEnviado = false;
 
 const OPCOES_ENTREGA = [
   { id: "retirar", nome: "Retirar" },
-  { id: "entregar", nome: "Entregar" },
+  { id: "entregar", nome: "Entregar", detalhe: "frete a combinar" },
 ];
 
 const ESTADOS_BR = [
@@ -3165,7 +3165,7 @@ function renderCarrinho(){
   const opcoesEntregaEl = document.getElementById("opcoes-entrega");
   opcoesEntregaEl.innerHTML = OPCOES_ENTREGA.map(o => `
     <button class="opcao-pagamento ${entregaEscolhida === o.id ? 'selecionada' : ''}" onclick="escolherEntrega('${o.id}')">
-      ${o.nome}
+      ${o.nome}${o.detalhe ? `<span class="aviso-acrescimo-cartao">${o.detalhe}</span>` : ''}
     </button>
   `).join("");
 
@@ -3445,6 +3445,7 @@ function montarMensagemWhatsapp(idPedido){
     msg += `\nBairro: ${endereco.bairro}`;
     msg += `\nRua: ${endereco.rua}`;
     if(endereco.complemento.trim()) msg += `\nComplemento: ${endereco.complemento}`;
+    msg += `\n*Frete: a combinar*`;
   } else {
     msg += `\n\n*Retirada no local*`;
   }
@@ -3460,7 +3461,7 @@ function montarPreviaVisual(idPedido){
     `• ${item.qtd}x ${escapeHtml(item.nome)}${item.encomenda ? " <b>(encomenda)</b>" : ""} — ${formatarPreco(item.qtd * item.preco)}`
   ).join("\n");
   let blocoEntrega = entregaEscolhida === "entregar"
-    ? `<b>Entrega</b>\n${escapeHtml(endereco.estadoNome)} · ${escapeHtml(endereco.cidade)}\nBairro: ${escapeHtml(endereco.bairro)}\nRua: ${escapeHtml(endereco.rua)}${endereco.complemento.trim() ? `\nComplemento: ${escapeHtml(endereco.complemento)}` : ""}`
+    ? `<b>Entrega</b>\n${escapeHtml(endereco.estadoNome)} · ${escapeHtml(endereco.cidade)}\nBairro: ${escapeHtml(endereco.bairro)}\nRua: ${escapeHtml(endereco.rua)}${endereco.complemento.trim() ? `\nComplemento: ${escapeHtml(endereco.complemento)}` : ""}\n<b>Frete: a combinar</b>`
     : `<b>Retirada no local</b>`;
   const blocoPagamento = (forma && forma.acrescimo)
     ? `<b>Total: ${formatarPreco(totalComAcrescimo())}</b>\nPagamento: ${escapeHtml(nomePagamento)}${parcelasEscolhidas > 1 ? ` — em ${parcelasEscolhidas}x de ${formatarPreco(valorParcela())}` : " — à vista"}`
