@@ -1196,9 +1196,13 @@
 .foto-produto-modal .photo-missing svg{width:44px;height:44px}
 .container-foto-modal{background:transparent!important}
 @media(max-width:767px){.foto-produto-modal{height:min(340px,45svh)!important}}
+/* página curta (ex.: carrinho vazio): o conteúdo cresce e o rodapé fica com o tamanho de sempre, encostado embaixo */
+body{display:flex;flex-direction:column}
+body>*{flex-shrink:0}
+body>main{flex-grow:1;width:100%}
 /* celular: fim da página é o rodapé verde (sem faixa clara embaixo) e sem zoom automático ao digitar */
 @media(max-width:899px){
-body{padding-bottom:0!important;min-height:0!important}
+body{padding-bottom:0!important;min-height:100svh!important}
 /* página curta (carrinho vazio): abaixo do rodapé aparece o fundo do html, da mesma cor do rodapé */
 html{background:var(--preto-suave,#171717)}
 .sales-footer{padding-bottom:calc(35px + 66px + env(safe-area-inset-bottom))!important}
