@@ -2536,14 +2536,20 @@ function renderFotoModalAtual(){
     el.onclick = null;
   } else {
     el.innerHTML = blocoFotoUrl(imgs[indiceGaleriaAtual], produtoModalAtual.nome);
-    el.onclick = imgs.length > 1 ? avancarGaleriaPorToqueNaFoto : null;
+    // tocar na foto abre a imagem grande; para trocar de foto: setas ou arrastar
+    el.onclick = abrirZoomPorToqueNaFoto;
   }
-  el.style.cursor = imgs.length > 1 ? "pointer" : "default";
+  el.style.cursor = imgs.length > 0 ? "zoom-in" : "default";
 
   const mostrarSetas = imgs.length > 1 ? "flex" : "none";
   document.getElementById("seta-galeria-esquerda").style.display = mostrarSetas;
   document.getElementById("seta-galeria-direita").style.display = mostrarSetas;
   document.getElementById("btn-zoom-foto").style.display = imgs.length > 0 ? "flex" : "none";
+}
+
+function abrirZoomPorToqueNaFoto(){
+  if(Date.now() - modalProdutoAbertoEm < 400) return; // mesmo cuidado do "ghost click" do iOS
+  abrirZoomFoto();
 }
 
 function avancarGaleriaPorToqueNaFoto(){
