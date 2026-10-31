@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>/* iPhone: campos com letra < 16px dão zoom ao tocar; maximum-scale evita isso e o iOS ainda deixa ampliar com os dedos */
+if(/iP(hone|od|ad)/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1))document.querySelector('meta[name=viewport]').content="width=device-width, initial-scale=1.0, maximum-scale=1";</script>
 <title>Studio Renata Almeida | Catálogo</title>
 <meta name="description" content="Studio Renata Almeida — cuidados profissionais para cabelo e pele. Monte seu pedido no catálogo e envie direto pelo WhatsApp.">
 <meta name="theme-color" content="#F8F6F1">
@@ -1373,8 +1375,11 @@ header.top::after{height:2px!important;background:var(--champagne)!important}
   .controles-visualizacao{flex-shrink:0;margin-left:auto}
   .chip{min-height:34px!important;padding:6px 12px!important;font-size:12px!important}
   .results-caption{margin-bottom:12px!important}
-  .controles-visualizacao .grupo-toggle:last-child{display:none!important}
+  .controles-visualizacao{gap:6px!important}
+  /* ordenar (Recomendados...): letra menor; no iPhone o zoom ao tocar é evitado pelo viewport (ver script no fim) */
+  .campo-ordenar{font-size:12px!important}
 }
+@media(max-width:340px){.linha-cabecalho{gap:6px!important}.header-actions{gap:4px!important}.header-order{padding:7px 8px!important}}
 </style></head>
 <body><a class="skip" href="#catalog-heading">Pular para os produtos</a>
 
