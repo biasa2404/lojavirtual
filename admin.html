@@ -44,6 +44,7 @@ main{max-width:960px;margin:0 auto;padding:18px 16px 120px}
 .aviso.erro{background:#F6E3E0;color:var(--erro)}
 .aviso.sucesso{background:#E6EFE6;color:var(--ok)}
 .aviso.info{background:var(--bege);color:var(--texto)}
+.aviso.flutuante{position:fixed;left:16px;right:16px;top:12px;z-index:60;margin:0 auto;max-width:640px;box-shadow:0 8px 24px #0000002a}
 .aviso .fechar{margin-left:auto;font-size:18px;line-height:1;color:inherit;padding:0 4px}
 
 .cartao{background:var(--cartao);border:1px solid var(--linha);border-radius:14px;padding:18px}
@@ -53,6 +54,7 @@ main{max-width:960px;margin:0 auto;padding:18px 16px 120px}
 .campo{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
 .campo label,.rotulo{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--suave)}
 .campo input,.campo select,.campo textarea{width:100%;padding:12px;border:1px solid var(--linha);border-radius:10px;background:var(--fundo);outline:none}
+#ed-marca,#ed-categoria{margin-top:8px}
 .campo input:focus,.campo select:focus,.campo textarea:focus{border-color:var(--champagne);background:#fff}
 .campo textarea{min-height:90px;resize:vertical}
 .campo .dica{font-size:12px;color:var(--suave)}
@@ -237,10 +239,10 @@ main{max-width:960px;margin:0 auto;padding:18px 16px 120px}
     <div class="cartao">
       <div class="campo"><label for="ed-nome">Nome do produto</label><input id="ed-nome" maxlength="120" placeholder="Ex: Kit Biotherapy"></div>
       <div class="duas">
-        <div class="campo"><label for="ed-marca">Marca</label><input id="ed-marca" list="lista-marcas" maxlength="60" placeholder="Ex: Malibu"></div>
-        <div class="campo"><label for="ed-categoria">Categoria</label><input id="ed-categoria" list="lista-categorias" maxlength="60" placeholder="Ex: Cabelo"></div>
+        <div class="campo"><label for="sel-marca">Marca</label><select id="sel-marca" onchange="escolherNaLista('Marca')"></select><input id="ed-marca" maxlength="60" placeholder="Nome da nova marca" hidden></div>
+        <div class="campo"><label for="sel-categoria">Categoria</label><select id="sel-categoria" onchange="escolherNaLista('Categoria')"></select><input id="ed-categoria" maxlength="60" placeholder="Nome da nova categoria" hidden></div>
       </div>
-      <datalist id="lista-marcas"></datalist><datalist id="lista-categorias"></datalist>
+      
       <div class="campo" id="bloco-preco"><label for="ed-preco">Preço (PIX ou dinheiro)</label><input id="ed-preco" inputmode="decimal" placeholder="R$ 0,00" oninput="mascararPreco(this)"><span class="dica">No cartão o site soma 7% sozinho.</span></div>
       <div class="campo"><label for="ed-descricao">Descrição</label><textarea id="ed-descricao" maxlength="2000" placeholder="Para que serve, como usar, diferenciais..."></textarea></div>
     </div>
@@ -364,12 +366,13 @@ function mascararPreco(el){
   el.value = dig ? formatarPreco(Number(dig) / 100) : "";
 }
 let avisoTimer = null;
-function mostrarAviso(tipo, texto, fixo){
+// flutuante: aparece por cima, sem rolar a página (usado ao voltar para a lista na posição em que estava)
+function mostrarAviso(tipo, texto, fixo, flutuante){
   const el = $("aviso");
-  el.className = "aviso " + tipo;
+  el.className = "aviso " + tipo + (flutuante ? " flutuante" : "");
   $("aviso-texto").textContent = texto;
   el.hidden = false;
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  if(!flutuante) window.scrollTo({ top: 0, behavior: "smooth" });
   clearTimeout(avisoTimer);
   if(tipo === "sucesso" && !fixo) avisoTimer = setTimeout(esconderAviso, 7000);
 }
@@ -648,9 +651,26 @@ function atualizarOferta(){
     ? (de > por ? `No site aparece: de ${formatarPreco(de)} por ${formatarPreco(por)}.` : `O preço anterior precisa ser maior que ${formatarPreco(por)}.`)
     : "No site aparece riscado: “de R$ 150,00 por R$ 99,00”. Deixe vazio para mostrar só o selo.";
 }
+// Marca e categoria no cadastro: lista com o que já existe + "Nova..." (o nome novo entra na lista ao salvar).
+const SELETOR_LISTA = { Marca: ["sel-marca", "ed-marca", "Sem marca", "+ Nova marca..."], Categoria: ["sel-categoria", "ed-categoria", "Escolha a categoria", "+ Nova categoria..."] };
+function montarSeletor(tipo, valor){
+  const [idSel, idInput, vazio, nova] = SELETOR_LISTA[tipo];
+  const nomes = itensDaLista(tipo).filter(x => !x.excluida).map(x => x.nome);
+  if(valor && !nomes.some(n => semAcento(n) === semAcento(valor))) nomes.push(valor);
+  nomes.sort((a, b) => semAcento(a).localeCompare(semAcento(b)));
+  $(idSel).innerHTML = `<option value="">${vazio}</option>` + nomes.map(n => `<option value="${escaparHtml(n)}">${escaparHtml(n)}</option>`).join("") + `<option value="__nova">${nova}</option>`;
+  const certo = nomes.find(n => semAcento(n) === semAcento(valor || ""));
+  $(idSel).value = certo || "";
+  $(idInput).value = certo || "";
+  $(idInput).hidden = true;
+}
+function escolherNaLista(tipo){
+  const [idSel, idInput] = SELETOR_LISTA[tipo];
+  const v = $(idSel).value;
+  if(v === "__nova"){ $(idInput).value = ""; $(idInput).hidden = false; $(idInput).focus(); }
+  else { $(idInput).value = v; $(idInput).hidden = true; }
+}
 function preencherListas(){
-  $("lista-marcas").innerHTML = itensDaLista("Marca").filter(x => !x.excluida).map(x => `<option value="${escaparHtml(x.nome)}">`).join("");
-  $("lista-categorias").innerHTML = itensDaLista("Categoria").filter(x => !x.excluida).map(x => `<option value="${escaparHtml(x.nome)}">`).join("");
 }
 
 // ===================== encomendas =====================
@@ -769,8 +789,10 @@ async function enviarLista(tipo, operacao, nome, para, btn, semMarca){
   }catch(e){ tratarErro(e, "Não consegui salvar."); }
   finally{ if(btn && document.body.contains(btn)) livre(btn); }
 }
+let posicaoNaLista = 0;
 function abrirEdicao(id){
   esconderAviso();
+  if(!$("tela-lista").hidden) posicaoNaLista = window.scrollY;
   preencherListas();
   const g = id ? montarGrupos().find(x => x.id === id) : null;
   grupoEmEdicao = g;
@@ -780,8 +802,8 @@ function abrirEdicao(id){
   $("btn-excluir").hidden = !g || g.excluido;
   $("btn-restaurar").hidden = !(g && g.excluido);
   $("ed-nome").value = g ? g.nome : "";
-  $("ed-marca").value = g ? g.marca : "";
-  $("ed-categoria").value = g ? g.categoria : "";
+  montarSeletor("Marca", g ? g.marca : "");
+  montarSeletor("Categoria", g ? g.categoria : "");
   $("ed-preco").value = g ? precoParaCampo(g.preco) : "";
   $("ed-descricao").value = g ? g.descricao : "";
   $("ed-itens-kit").value = g ? g.itensKit : "";
@@ -806,7 +828,7 @@ function abrirEdicao(id){
   renderizarVariacoes();
   mostrarTela("edicao");
 }
-function voltarParaLista(){ grupoEmEdicao = null; mostrarTela("lista"); renderizarLista(); }
+function voltarParaLista(){ grupoEmEdicao = null; mostrarTela("lista"); renderizarLista(); window.scrollTo({ top: posicaoNaLista }); }
 
 function renderizarFotos(){
   $("grade-fotos").innerHTML = fotosEmEdicao.map((f, i) => `
@@ -952,7 +974,7 @@ async function salvarProduto(){
     const r = await chamarScript({ acao: "salvar", produto: f, opcoes: ops });
     await carregarTudo(r.dados);
     voltarParaLista();
-    mostrarAviso("sucesso", `“${f.nome}” salvo (ID ${r.id}). ${f.noSite ? "No site ele atualiza em alguns minutos." : "Ele não aparece no site (Mostrar no site desligado)."}`, true);
+    mostrarAviso("sucesso", `“${f.nome}” salvo (ID ${r.id}). ${f.noSite ? "No site ele atualiza em alguns minutos." : "Ele não aparece no site (Mostrar no site desligado)."}`, false, true);
   }catch(e){ tratarErro(e, "Não consegui salvar."); }
   finally{ livre(btn); }
 }
@@ -965,9 +987,9 @@ async function mudarSituacao(excluir){
   try{
     const r = await chamarScript({ acao: excluir ? "excluir" : "restaurar", id: g.id });
     await carregarTudo(r.dados);
-    if(!excluir) filtroAtual = "ativos";
+    if(!excluir){ filtroAtual = "ativos"; posicaoNaLista = 0; }
     voltarParaLista();
-    mostrarAviso("sucesso", excluir ? `“${g.nome}” foi para os Excluídos e sai do site em alguns minutos.` : `“${g.nome}” foi restaurado.`);
+    mostrarAviso("sucesso", excluir ? `“${g.nome}” foi para os Excluídos e sai do site em alguns minutos.` : `“${g.nome}” foi restaurado.`, false, true);
   }catch(e){ tratarErro(e, excluir ? "Não consegui excluir." : "Não consegui restaurar."); }
   finally{ livre(btn); }
 }
