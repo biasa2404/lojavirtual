@@ -987,6 +987,9 @@ function lerFormulario(){
   f.tipos = comOpcoes ? tipos : [];
   if(!f.nome) return [null, null, "Digite o nome do produto."];
   if(!f.categoria) return [null, null, "Digite a categoria (ex: Cabelo, Pele, Corpo)."];
+  // mesmo aviso do Apps Script, conferido aqui antes de sair da tela (o salvar roda em segundo plano)
+  const igual = montarGrupos().find(g => !g.excluido && String(g.id) !== String(f.id) && semAcento(g.nome) === semAcento(f.nome));
+  if(igual && (!grupoEmEdicao || semAcento(grupoEmEdicao.nome) !== semAcento(f.nome))) return [null, null, `Já existe outro produto chamado “${igual.nome}” (ID ${igual.id}). Use outro nome.`];
   const conferirOferta = por => f.precoAnterior && !(f.precoAnterior > por) ? `O preço anterior precisa ser maior que o preço da oferta (${formatarPreco(por)}).` : null;
   if(!comOpcoes){
     if(!(f.preco > 0)) return [null, null, "Digite o preço do produto."];
@@ -1008,20 +1011,61 @@ function lerFormulario(){
   const e = conferirOferta(Math.min(...ops.map(o => o.preco))); if(e) return [null, null, e];
   return [f, ops, null];
 }
-async function salvarProduto(){
+// Salvar em segundo plano: o painel volta para a lista na hora e a planilha é gravada por trás
+// (o Apps Script leva alguns segundos). Os salvamentos vão em fila, um de cada vez.
+let filaSalvar = Promise.resolve(), salvandoAgora = 0;
+window.addEventListener("beforeunload", e => { if(salvandoAgora){ e.preventDefault(); e.returnValue = ""; } });
+function salvarProduto(){
   esconderAviso();
   const [f, ops, erro] = lerFormulario();
   if(erro) return mostrarAviso("erro", erro);
-  const btn = $("btn-salvar");
   const temFotoNova = f.fotos.some(x => typeof x === "object") || ops.some(o => typeof o.foto === "object");
-  ocupado(btn, temFotoNova ? "Enviando fotos e salvando..." : "Salvando...");
-  try{
-    const r = await chamarScript({ acao: "salvar", produto: f, opcoes: ops });
-    await carregarTudo(r.dados);
-    voltarParaLista();
-    mostrarAviso("sucesso", `“${f.nome}” salvo (ID ${r.id}). ${f.noSite ? "No site ele atualiza em alguns minutos." : "Ele não aparece no site (Mostrar no site desligado)."}`, false, true);
-  }catch(e){ tratarErro(e, "Não consegui salvar."); }
-  finally{ livre(btn); }
+  aplicarNaTela(f, ops);
+  voltarParaLista();
+  enviarSalvar(f, ops, temFotoNova);
+}
+function enviarSalvar(f, ops, temFotoNova){
+  salvandoAgora++;
+  avisoSalvando(temFotoNova ? `Enviando fotos e salvando “${f.nome}”...` : `Salvando “${f.nome}”...`);
+  filaSalvar = filaSalvar.then(async () => {
+    try{
+      const r = await chamarScript({ acao: "salvar", produto: f, opcoes: ops });
+      await carregarTudo(r.dados);
+      salvandoAgora--;
+      atualizarListaSeAberta();
+      if(salvandoAgora) return avisoSalvando(`Salvando (${salvandoAgora} na fila)...`);
+      mostrarAviso("sucesso", `“${f.nome}” salvo (ID ${r.id}). ${f.noSite ? "No site ele atualiza em alguns minutos." : "Ele não aparece no site (Mostrar no site desligado)."}`, false, true);
+    }catch(e){
+      salvandoAgora--;
+      try{ await carregarTudo(); atualizarListaSeAberta(); }catch(_){} // desfaz o que foi mostrado antes da hora
+      if(e && e.codigo === "senha") return tratarErro(e);
+      mostrarAviso("erro", e && e.doScript && e.message !== AVISO_ACESSO ? `Não salvou “${f.nome}”: ${e.message}` : `Não consegui salvar “${f.nome}”. Confira sua internet.`, true, true);
+      const b = document.createElement("button"); b.type = "button"; b.className = "btn-link"; b.style.marginLeft = "8px"; b.textContent = "Tentar de novo";
+      b.onclick = () => { esconderAviso(); aplicarNaTela(f, ops); atualizarListaSeAberta(); enviarSalvar(f, ops, temFotoNova); };
+      $("aviso-texto").appendChild(b);
+    }
+  });
+}
+function avisoSalvando(texto){
+  mostrarAviso("info", "", true, true);
+  $("aviso-texto").innerHTML = `<span class="icone-spin"></span> ${escaparHtml(texto)}`;
+}
+function atualizarListaSeAberta(){ if(!$("tela-lista").hidden){ const y = window.scrollY; renderizarLista(); window.scrollTo({ top: y }); } }
+// Mostra a alteração na lista antes da planilha responder (produto já existente).
+function aplicarNaTela(f, ops){
+  if(!f.id) return; // produto novo aparece quando a planilha devolver o ID
+  const p = produtos.find(x => String(x["ID"]).trim() === String(f.id));
+  if(!p) return;
+  const sim = v => v ? "Sim" : "Não";
+  const preco = ops.length ? Math.min(...ops.map(o => o.preco)) : f.preco;
+  const sit = situacaoDe(p).startsWith("exclu") ? "Excluído" : !f.noSite ? "Fora do site" : f.esgotado ? "Esgotado" : "Ativo";
+  Object.assign(p, { "Produto": f.nome, "Marca": f.marca, "Categoria": f.categoria, "Preço (R$)": preco, "Recomendado?": sim(f.destaque), "Novo?": sim(f.novo),
+    "Oferta Especial?": sim(f.oferta), "É Kit?": sim(f.kit), "Itens do Kit": f.kit ? f.itensKit : "", "Descrição": f.descricao, "Situação": sit,
+    "Preço anterior (R$)": f.precoAnterior || "" });
+  ["Imagem (URL)", "Imagem 2 (URL)", "Imagem 3 (URL)", "Imagem 4 (URL)", "Imagem 5 (URL)"].forEach((c, n) => { const x = f.fotos[n]; if(typeof x === "string" || x == null) p[c] = x || ""; });
+  opcoes = opcoes.filter(o => String(o["ID do produto"]).trim() !== String(f.id)).concat(ops.map(o => Object.assign({ "ID do produto": f.id,
+    "Ajuste de preço": Math.round((o.preco - preco) * 100) / 100, "Disponível?": o.esgotado ? "Não" : "Sim",
+    "Imagem da variação (URL)": typeof o.foto === "string" ? o.foto : "" }, o.valores)));
 }
 async function mudarSituacao(excluir){
   const g = grupoEmEdicao;
