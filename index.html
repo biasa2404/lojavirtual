@@ -1852,7 +1852,7 @@ function atualizarBloqueioDeRolagem(){
 const FORMAS_PAGAMENTO = [
   { id: "pix", nome: "PIX" },
   { id: "dinheiro", nome: "Dinheiro" },
-  { id: "cartao", nome: "Cartão", acrescimo: 0.07, parcelasMax: 7 },
+  { id: "cartao", nome: "Cartão", acrescimo: 0.10, parcelasMax: 7 },
 ];
 
 /* =========================================================
@@ -3211,7 +3211,7 @@ function renderCarrinho(){
     blocoParcelas.style.display = "none";
   }
 
-  // PIX e dinheiro: preço do catálogo. Cartão: +7% sobre o total, à vista ou parcelado.
+  // PIX e dinheiro: preço do catálogo. Cartão: +10% sobre o total, à vista ou parcelado.
   const linhaDetalhe = document.getElementById("linha-detalhe-total");
   if(formaAtual && formaAtual.acrescimo){
     linhaDetalhe.style.display = "flex";
