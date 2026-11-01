@@ -1722,6 +1722,8 @@ const URL_BASE_IMAGENS = "https://raw.githubusercontent.com/biasa2404/lojavirtua
 // Os dois valores ficam em config.js (o painel usa o mesmo arquivo).
 const URL_SUPABASE = (window.STUDIO_CONFIG || {}).supabaseUrl || "";
 const CHAVE_PUBLICA_SUPABASE = (window.STUDIO_CONFIG || {}).supabaseChave || "";
+// O catálogo do programa só entra quando usarPrograma = true (config.js) ou com ?programa=1 no link (teste).
+const USAR_PROGRAMA = !!(window.STUDIO_CONFIG || {}).usarPrograma || /[?&]programa=1\b/.test(location.search);
 
 const URL_LISTA_IMAGENS = "https://api.github.com/repos/biasa2404/lojavirtual/contents/imagens";
 const CHAVE_CACHE_LISTA_IMAGENS = "studio_lista_imagens";
@@ -1850,7 +1852,7 @@ function atualizarBloqueioDeRolagem(){
 const FORMAS_PAGAMENTO = [
   { id: "pix", nome: "PIX" },
   { id: "dinheiro", nome: "Dinheiro" },
-  { id: "cartao", nome: "Cartão", acrescimo: 0.07, parcelasMax: 7 },
+  { id: "cartao", nome: "Cartão", acrescimo: 0.10, parcelasMax: 7 },
 ];
 
 /* =========================================================
@@ -2165,7 +2167,7 @@ async function buscarCombinacoesDaPlanilha(){
 }
 
 async function buscarCatalogoDoSupabase(){
-  if(!URL_SUPABASE || !CHAVE_PUBLICA_SUPABASE) return [];
+  if(!URL_SUPABASE || !CHAVE_PUBLICA_SUPABASE || !USAR_PROGRAMA) return [];
   const controlador = new AbortController();
   const timer = setTimeout(() => controlador.abort(), 8000);
   try{
@@ -3209,7 +3211,7 @@ function renderCarrinho(){
     blocoParcelas.style.display = "none";
   }
 
-  // PIX e dinheiro: preço do catálogo. Cartão: +7% sobre o total, à vista ou parcelado.
+  // PIX e dinheiro: preço do catálogo. Cartão: +10% sobre o total, à vista ou parcelado.
   const linhaDetalhe = document.getElementById("linha-detalhe-total");
   if(formaAtual && formaAtual.acrescimo){
     linhaDetalhe.style.display = "flex";
@@ -3705,8 +3707,8 @@ function aplicarEmpresa(d){
   const link = document.getElementById("link-instagram");
   if(link) link.hidden = !insta;
 }
-try{ aplicarEmpresa(JSON.parse(localStorage.getItem("studio_empresa_publica") || "null")); }catch(e){}
-if(URL_SUPABASE) fetch(`${URL_SUPABASE}/rest/v1/rpc/empresa_publica`, { method: "POST", headers: { apikey: CHAVE_PUBLICA_SUPABASE, "Content-Type": "application/json" }, body: "{}" })
+if(USAR_PROGRAMA) try{ aplicarEmpresa(JSON.parse(localStorage.getItem("studio_empresa_publica") || "null")); }catch(e){}
+if(URL_SUPABASE && USAR_PROGRAMA) fetch(`${URL_SUPABASE}/rest/v1/rpc/empresa_publica`, { method: "POST", headers: { apikey: CHAVE_PUBLICA_SUPABASE, "Content-Type": "application/json" }, body: "{}" })
   .then(r => r.ok ? r.json() : null)
   .then(d => { if(d && typeof d === "object"){ aplicarEmpresa(d); try{ localStorage.setItem("studio_empresa_publica", JSON.stringify(d)); }catch(e){} } })
   .catch(() => {});
