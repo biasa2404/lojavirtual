@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#171717">
+<title>Studio no celular</title>
+<script src="../config.js"></script>
+<style>
+:root{--ouro:#B9986A;--preto:#171717;--bege:#F3EDE4;--cinza:#8a8a8a;--linha:#e7e1d8;--verde:#2e7d4f;--verm:#b23b3b}
+*{box-sizing:border-box}
+body{margin:0;font-family:Montserrat,Arial,sans-serif;background:#FBF8F3;color:var(--preto);font-size:15px}
+header{background:var(--preto);color:#fff;padding:12px 14px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5}
+header b{font-family:"Playfair Display",Georgia,serif;font-weight:500;font-size:18px;flex:1}
+header small{color:var(--ouro);font-size:12px}
+nav{display:flex;background:#fff;border-bottom:1px solid var(--linha);position:sticky;top:48px;z-index:4}
+nav button{flex:1;border:0;background:none;padding:12px 4px;font:inherit;font-size:14px;color:var(--cinza);border-bottom:3px solid transparent}
+nav button.on{color:var(--preto);border-color:var(--ouro);font-weight:600}
+main{padding:12px;max-width:640px;margin:0 auto}
+.card{background:#fff;border:1px solid var(--linha);border-radius:12px;padding:12px;margin-bottom:10px}
+.hora{font-weight:700;font-size:17px}
+.sub{color:var(--cinza);font-size:13px}
+.sit{display:inline-block;font-size:12px;padding:2px 8px;border-radius:10px;background:var(--bege)}
+.sit.at{background:#fff3d6}.sit.ok{background:#e3f2e8;color:var(--verde)}.sit.no{background:#f7e1e1;color:var(--verm)}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+button.b{border:1px solid var(--preto);background:#fff;border-radius:10px;padding:10px 14px;font:inherit;font-size:14px}
+button.b.p{background:var(--preto);color:#fff}
+button.b.o{background:var(--ouro);border-color:var(--ouro);color:#fff}
+input,textarea{width:100%;padding:11px;border:1px solid var(--linha);border-radius:10px;font:inherit;font-size:16px;background:#fff}
+label{display:block;font-size:13px;color:var(--cinza);margin:10px 0 4px}
+.linha{display:flex;gap:8px;align-items:center}
+.dia{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.dia input{flex:1}
+.aviso{padding:10px 12px;border-radius:10px;margin-bottom:10px;font-size:14px}
+.aviso.erro{background:#f7e1e1;color:var(--verm)}.aviso.info{background:#fff3d6}
+.vazio{text-align:center;color:var(--cinza);padding:30px 0}
+.preco{font-weight:700}
+.estq{font-size:13px}.estq.zero{color:var(--verm)}
+#login{max-width:380px;margin:40px auto;padding:0 16px}
+#login h1{font-family:"Playfair Display",Georgia,serif;font-weight:500;text-align:center}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;z-index:9}
+#modal .caixa{background:#fff;width:100%;border-radius:16px 16px 0 0;padding:16px;max-height:90vh;overflow:auto}
+#fila{display:none}
+a.zap{color:var(--verde);text-decoration:none;font-weight:600}
+</style>
+</head>
+<body>
+<div id="login" hidden>
+  <h1>Studio Renata Almeida</h1>
+  <p class="sub" style="text-align:center">Entre com a conta do programa (a mesma do computador ou a conta deste celular).</p>
+  <div id="lgErro" class="aviso erro" hidden></div>
+  <label>E-mail</label><input id="lgEmail" type="email" autocomplete="username">
+  <label>Senha</label><input id="lgSenha" type="password" autocomplete="current-password">
+  <div class="btns"><button class="b p" id="lgOk" style="flex:1">Entrar</button></div>
+  <div class="btns"><button class="b" id="lgNova" style="flex:1">Criar conta para este celular</button></div>
+  <p class="sub">Conta nova: depois de criar, confirme pelo e-mail e peça ao Admin para aprovar no programa.</p>
+</div>
+
+<div id="app" hidden>
+  <header><b>Studio</b><small id="quem"></small><button class="b" id="sair" style="padding:6px 10px;font-size:12px">Sair</button></header>
+  <nav><button data-t="agenda" class="on">Agenda</button><button data-t="produtos">Produtos</button><button data-t="clientes">Clientes</button></nav>
+  <main>
+    <div id="fila" class="aviso info"></div>
+    <div id="erro" class="aviso erro" hidden></div>
+    <section id="t-agenda">
+      <div class="dia"><button class="b" id="diaAnt">‹</button><input id="dia" type="date"><button class="b" id="diaProx">›</button></div>
+      <div id="listaAgenda"></div>
+    </section>
+    <section id="t-produtos" hidden>
+      <input id="buscaP" placeholder="Buscar produto ou código" style="margin-bottom:10px">
+      <div id="listaProdutos"></div>
+    </section>
+    <section id="t-clientes" hidden>
+      <input id="buscaC" placeholder="Buscar cliente ou celular" style="margin-bottom:10px">
+      <div id="listaClientes"></div>
+    </section>
+    <p class="sub" style="text-align:center" id="atualizado"></p>
+  </main>
+</div>
+<div id="modal"><div class="caixa" id="modalCaixa"></div></div>
+
+<script>
+"use strict";
+const CFG = window.STUDIO_CONFIG || {};
+const URL_S = CFG.supabaseUrl, CHAVE = CFG.supabaseChave;
+const ABAS = ["Agenda", "Produtos", "Lotes", "Clientes", "AReceber", "Recebimentos"];
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const brl = v => "R$ " + Number(v || 0).toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+const pad = n => String(n).padStart(2, "0");
+// datas como o programa guarda: {"$d": "AAAA-MM-DDTHH:MM:SS"} na hora local
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+const dt = v => v && typeof v === "object" && v.$d ? new Date(v.$d) : (typeof v === "string" && /^\d{4}-\d\d-\d\d/.test(v) ? new Date(v) : null);
+const hm = d => d ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : "";
+const diaStr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const minuto = d => { const x = new Date(d); x.setSeconds(0, 0); return x; };
+
+let auth = JSON.parse(localStorage.getItem("cel_auth") || "null");
+let eu = JSON.parse(localStorage.getItem("cel_eu") || "null");
+let dados = JSON.parse(localStorage.getItem("cel_dados") || "null"); // {versao, abas:{Aba:[{id,dados}]}, em}
+let fila = JSON.parse(localStorage.getItem("cel_fila") || "[]");
+let tela = "agenda";
+
+function salvarLocal(){
+  localStorage.setItem("cel_auth", JSON.stringify(auth));
+  localStorage.setItem("cel_eu", JSON.stringify(eu));
+  localStorage.setItem("cel_fila", JSON.stringify(fila));
+  try{ localStorage.setItem("cel_dados", JSON.stringify(dados)); }catch(e){}
+}
+
+class SemInternet extends Error{}
+async function req(metodo, caminho, corpo, extra){
+  const h = { apikey: CHAVE, "Content-Type": "application/json", ...(extra || {}) };
+  if(auth && auth.access_token && !caminho.startsWith("/auth/")) h.Authorization = "Bearer " + auth.access_token;
+  let r;
+  try{ r = await fetch(URL_S + caminho, { method: metodo, headers: h, body: corpo == null ? undefined : JSON.stringify(corpo), cache: "no-store" }); }
+  catch(e){ throw new SemInternet("Sem internet"); }
+  const txt = await r.text(); let j = null; try{ j = txt ? JSON.parse(txt) : null; }catch(e){}
+  if(r.status === 401 && auth && auth.refresh_token && !caminho.startsWith("/auth/") && !(extra && extra._renovou)){
+    await renovar(); return req(metodo, caminho, corpo, { ...(extra || {}), _renovou: 1 });
+  }
+  if(!r.ok){
+    const msg = (j && (j.message || j.msg || j.error_description || j.error)) || ("Erro " + r.status);
+    const e = new Error(traduzir(msg)); e.code = j && j.code; e.status = r.status; throw e;
+  }
+  return j;
+}
+function traduzir(m){
+  if(/Invalid login credentials/i.test(m)) return "E-mail ou senha errados";
+  if(/Email not confirmed/i.test(m)) return "Confirme o e-mail antes (veja a caixa de entrada)";
+  return m;
+}
+async function renovar(){
+  const j = await req("POST", "/auth/v1/token?grant_type=refresh_token", { refresh_token: auth.refresh_token });
+  auth = { access_token: j.access_token, refresh_token: j.refresh_token, email: (j.user || {}).email || auth.email }; salvarLocal();
+}
+const rpc = (nome, args) => req("POST", "/rest/v1/rpc/" + nome, args || {});
+
+async function lerTudo(){
+  const abas = {}; ABAS.forEach(a => abas[a] = []);
+  const versao = Number(await rpc("versao_atual")) || 0;
+  let ultimo = null;
+  for(;;){
+    const q = new URLSearchParams({ select: "aba,id,dados", aba: `in.(${ABAS.join(",")})`, apagado: "is.false", order: "aba.asc,id.asc", limit: "1000" });
+    if(ultimo) q.set("or", `(aba.gt.${ultimo.aba},and(aba.eq.${ultimo.aba},id.gt.${ultimo.id}))`);
+    const r = await req("GET", "/rest/v1/registros?" + q.toString());
+    (r || []).forEach(x => abas[x.aba] && abas[x.aba].push({ id: x.id, dados: x.dados }));
+    if(!r || r.length < 1000) break;
+    ultimo = r[r.length - 1];
+  }
+  dados = { versao, abas, em: Date.now() }; salvarLocal();
+}
+
+// ---------- entrar ----------
+async function entrar(){
+  $("#lgErro").hidden = true;
+  try{
+    const j = await req("POST", "/auth/v1/token?grant_type=password", { email: $("#lgEmail").value.trim(), password: $("#lgSenha").value });
+    auth = { access_token: j.access_token, refresh_token: j.refresh_token, email: (j.user || {}).email };
+    salvarLocal(); await abrir();
+  }catch(e){ $("#lgErro").textContent = e instanceof SemInternet ? "Sem internet" : e.message; $("#lgErro").hidden = false; }
+}
+async function criarConta(){
+  $("#lgErro").hidden = true;
+  const email = $("#lgEmail").value.trim(), senha = $("#lgSenha").value;
+  if(!email || senha.length < 6){ $("#lgErro").textContent = "Digite o e-mail e uma senha com 6 letras ou mais"; $("#lgErro").hidden = false; return; }
+  try{
+    const j = await req("POST", "/auth/v1/signup", { email, password: senha });
+    if(j && j.access_token){ auth = { access_token: j.access_token, refresh_token: j.refresh_token, email }; salvarLocal(); await abrir(); return; }
+    $("#lgErro").textContent = "Conta criada. Abra o e-mail, clique no link de confirmação e depois volte aqui e toque em Entrar.";
+  }catch(e){ $("#lgErro").textContent = e instanceof SemInternet ? "Sem internet" : (/already registered/i.test(e.message) ? "Este e-mail já tem conta: toque em Entrar" : e.message); }
+  $("#lgErro").hidden = false;
+}
+const pode = p => !eu || !Array.isArray(eu.permissoes) || eu.permissoes.includes(p);
+async function abrir(){
+  try{
+    eu = await rpc("entrar_na_empresa", { nome: "Celular" });
+    salvarLocal();
+    if(eu.situacao !== "Ativo"){
+      $("#login").hidden = false; $("#app").hidden = true;
+      $("#lgErro").textContent = eu.situacao === "Pendente" ? "Esta conta está esperando o Admin aprovar (no programa: Configurar › Contas da nuvem)." : "Esta conta foi desativada pelo Admin.";
+      $("#lgErro").hidden = false; return;
+    }
+    await lerTudo();
+    await enviarFila();
+  }catch(e){
+    if(!(e instanceof SemInternet)){
+      if(e.status === 400 || e.status === 401){ auth = null; salvarLocal(); mostrarLogin(e.message); return; }
+      erro(e.message);
+    }
+    if(!dados){ mostrarLogin("Sem internet, e este celular ainda não tem os dados."); return; }
+  }
+  $("#login").hidden = true; $("#app").hidden = false;
+  $("#quem").textContent = (eu && (eu.usuario || eu.email)) || (auth && auth.email) || "";
+  mostrar();
+}
+function mostrarLogin(msg){
+  $("#app").hidden = true; $("#login").hidden = false;
+  if(msg){ $("#lgErro").textContent = msg; $("#lgErro").hidden = false; }
+}
+function erro(m){ const e = $("#erro"); e.textContent = m || ""; e.hidden = !m; }
+
+// ---------- gravar (igual ao programa: versão + Registro) ----------
+let _ultimoId = 0n;
+function novoId(){
+  let t = BigInt(Date.now()) * 1000000n; if(t <= _ultimoId) t = _ultimoId + 1n; _ultimoId = t;
+  const r = crypto.getRandomValues(new Uint8Array(8)); const h = t.toString(16).padStart(16, "0") + [...r].map(b => b.toString(16).padStart(2, "0")).join("");
+  return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;
+}
+function registro(acao, detalhe){
+  return { aba: "Registro", id: novoId(), dados: { Data: { $d: iso(new Date()) }, Computador: "Celular (" + ((auth && auth.email) || "") + ")",
+    Usuario: (eu && eu.usuario) || "", Acao: acao, Detalhe: detalhe } };
+}
+async function lerHorario(id){
+  const r = await req("GET", "/rest/v1/registros?" + new URLSearchParams({ select: "id,dados", aba: "eq.Agenda", id: "eq." + id, apagado: "is.false" }));
+  if(!r || !r.length) throw new Error("Horário não encontrado");
+  return r[0].dados;
+}
+// aplica a ação num horário, com as mesmas regras do programa (agenda.py)
+function aplicar(a, acao, quando, obs, minutos, inicioFila){
+  const s = a.Situacao, f = minuto(quando);
+  if(acao === "chegou"){
+    if(!["Marcado","Confirmado"].includes(s)) throw new Error("Este horário está " + s.toLowerCase());
+    a.Situacao = "Chegou"; return ["Agenda", `${a.ID} ${a.Cliente}: ${s} -> Chegou`];
+  }
+  if(acao === "iniciar"){
+    if(!["Marcado","Confirmado","Chegou"].includes(s)) throw new Error("Não dá para iniciar: o horário está " + s.toLowerCase());
+    a.Situacao = "Em atendimento"; a.Inicio = { $d: iso(f) };
+    return ["Iniciou atendimento", `${a.ID} ${a.Cliente} ${a.ServicoNome} ${hm(f)} (celular)`];
+  }
+  if(acao === "finalizar"){
+    let ini, m;
+    if(minutos){ m = parseInt(minutos, 10); if(!(m > 0 && m <= 720)) throw new Error("Minutos inválidos"); ini = new Date(f - m * 60000); }
+    else{
+      ini = dt(a.Inicio) || inicioFila;
+      if(s !== "Em atendimento" && !inicioFila) throw new Error("Aperte Iniciar quando começar (ou digite quantos minutos levou)");
+      if(!ini) throw new Error("Sem a hora de início: digite quantos minutos levou");
+      m = Math.max(Math.round((f - ini) / 60000), 1);
+    }
+    if(!["Em atendimento","Chegou","Confirmado","Marcado"].includes(s)) throw new Error("Não dá para finalizar: o horário está " + s.toLowerCase());
+    Object.assign(a, { Situacao: "Concluído", Inicio: { $d: iso(minuto(ini)) }, Fim: { $d: iso(f) }, Minutos: m, ObsTempo: String(obs || "").trim() });
+    return ["Finalizou atendimento", `${a.ID} ${a.Cliente} ${a.ServicoNome}: ${m} min (agenda ${a.Duracao} min) (celular)` + (obs ? ` - ${obs}` : "")];
+  }
+  throw new Error("Ação inválida");
+}
+async function gravarHorario(rid, acao, quando, obs, minutos, inicioFila){
+  for(let tentativa = 0; tentativa < 3; tentativa++){
+    const a = await lerHorario(rid);
+    const [ac, det] = aplicar(a, acao, quando, obs, minutos, inicioFila);
+    const base = Number(await rpc("versao_atual"));
+    try{
+      await rpc("gravar", { base, mudancas: [{ aba: "Agenda", id: rid, dados: a }, registro(ac, det)] });
+      return a;
+    }catch(e){ if(e.code !== "40001") throw e; } // outro aparelho gravou no meio: lê de novo
+  }
+  throw new Error("O banco está muito ocupado agora. Tente de novo.");
+}
+async function acaoHorario(rid, acao, obs, minutos){
+  erro("");
+  const quando = new Date();
+  try{
+    const a = await gravarHorario(rid, acao, quando, obs, minutos);
+    const linha = dados.abas.Agenda.find(x => x.id === rid); if(linha) linha.dados = a;
+    salvarLocal(); fecharModal(); mostrar();
+  }catch(e){
+    if(e instanceof SemInternet && acao !== "chegou"){
+      // sem internet: guarda no celular e manda quando voltar (Iniciar/Finalizar)
+      const linha = dados.abas.Agenda.find(x => x.id === rid);
+      try{ aplicar(linha.dados, acao, quando, obs, minutos, null); }catch(e2){ erro(e2.message); return; }
+      fila.push({ rid, acao, quando: quando.toISOString(), obs: obs || "", minutos: minutos || "" });
+      salvarLocal(); fecharModal(); mostrar(); return;
+    }
+    erro(e instanceof SemInternet ? "Sem internet" : e.message); fecharModal();
+  }
+}
+async function enviarFila(){
+  while(fila.length){
+    const it = fila[0];
+    try{
+      const a = await lerHorario(it.rid);
+      const pulou = (it.acao === "iniciar" && a.Situacao !== "Marcado" && a.Situacao !== "Confirmado" && a.Situacao !== "Chegou")
+                 || (it.acao === "finalizar" && a.Situacao === "Concluído");
+      if(!pulou){
+        const ini = it.acao === "finalizar" ? fila.filter(x => x.rid === it.rid && x.acao === "iniciar").map(x => new Date(x.quando))[0] : null;
+        await gravarHorario(it.rid, it.acao, new Date(it.quando), it.obs, it.minutos, ini || dt(a.Inicio));
+      }
+    }catch(e){
+      if(e instanceof SemInternet) break;
+      erro("Não consegui mandar o que foi feito sem internet: " + e.message);
+    }
+    fila.shift(); salvarLocal();
+  }
+  mostrarFila();
+}
+function mostrarFila(){
+  const f = $("#fila"); f.style.display = fila.length ? "block" : "none";
+  f.textContent = fila.length ? `Sem internet: ${fila.length} ação(ões) guardada(s) neste celular. Vão sozinhas quando a internet voltar.` : "";
+}
+
+// ---------- telas ----------
+function mostrar(){
+  ["agenda","produtos","clientes"].forEach(t => $("#t-" + t).hidden = t !== tela);
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("on", b.dataset.t === tela));
+  mostrarFila();
+  if(!dados) return;
+  if(tela === "agenda") mostrarAgenda(); else if(tela === "produtos") mostrarProdutos(); else mostrarClientes();
+  $("#atualizado").textContent = "Dados de " + new Date(dados.em).toLocaleString("pt-BR").slice(0, 17) + " · toque aqui para atualizar";
+}
+const SIT = { "Em atendimento": "at", "Concluído": "ok", "Faltou": "no", "Cancelado": "no" };
+function mostrarAgenda(){
+  const d = $("#dia").value;
+  const lista = dados.abas.Agenda.filter(x => { const t = dt(x.dados.Data); return t && diaStr(t) === d; })
+    .sort((a, b) => dt(a.dados.Data) - dt(b.dados.Data));
+  $("#listaAgenda").innerHTML = lista.length ? lista.map(x => {
+    const a = x.dados, ini = dt(a.Data), fim = new Date(ini.getTime() + (Number(a.Duracao) || 0) * 60000);
+    const s = a.Situacao, btn = [];
+    if(pode("agenda")){
+    if(["Marcado","Confirmado"].includes(s)) btn.push(`<button class="b" data-a="chegou" data-id="${x.id}">Chegou</button>`);
+    if(["Marcado","Confirmado","Chegou"].includes(s)) btn.push(`<button class="b o" data-a="iniciar" data-id="${x.id}">▶ Iniciar</button>`);
+    if(["Em atendimento","Chegou","Confirmado","Marcado"].includes(s)) btn.push(`<button class="b p" data-a="finalizar" data-id="${x.id}">■ Finalizar</button>`);
+    }
+    const tempo = s === "Em atendimento" && dt(a.Inicio) ? ` · começou ${hm(dt(a.Inicio))}` : (a.Minutos ? ` · levou ${a.Minutos} min` : "");
+    const sinal = Number(a.Sinal) > 0 ? ` · sinal ${brl(a.Sinal)} ${a.SinalPago === "Sim" || a.SinalPago === true ? "pago" : "a receber"}` : "";
+    return `<div class="card"><div class="linha"><span class="hora">${hm(ini)}–${hm(fim)}</span><span style="flex:1"></span><span class="sit ${SIT[s] || ""}">${esc(s)}</span></div>
+      <div><b>${esc(a.Cliente)}</b> · ${esc(a.ServicoNome)}</div>
+      <div class="sub">${esc(a.Profissional)}${tempo}${sinal}</div>
+      ${a.Observacao ? `<div class="sub">${esc(a.Observacao)}</div>` : ""}${a.ObsTempo ? `<div class="sub">Obs.: ${esc(a.ObsTempo)}</div>` : ""}
+      ${btn.length ? `<div class="btns">${btn.join("")}</div>` : ""}</div>`;
+  }).join("") : `<div class="vazio">Nenhum horário neste dia.<br><span class="sub">Marcar horário é no programa do computador.</span></div>`;
+}
+function estoque(){
+  const e = {}; dados.abas.Lotes.forEach(x => { const p = x.dados.Produto; e[p] = (e[p] || 0) + (Number(x.dados.Saldo) || 0); }); return e;
+}
+const norm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+function mostrarProdutos(){
+  const q = norm($("#buscaP").value), e = estoque();
+  const lista = dados.abas.Produtos.map(x => x.dados).filter(p => p.Situacao !== "Inativo")
+    .filter(p => !q || norm(p.Nome).includes(q) || String(p.Codigo).padStart(4, "0").includes(q) || norm(p.Marca).includes(q))
+    .sort((a, b) => String(a.Nome).localeCompare(String(b.Nome))).slice(0, 80);
+  $("#listaProdutos").innerHTML = lista.length ? lista.map(p => {
+    const serv = p.Tipo === "Serviço", qtd = e[p.Codigo] || 0;
+    return `<div class="card"><div class="linha"><b style="flex:1">${esc(p.Nome)}</b><span class="preco">${brl(p.Preco)}</span></div>
+      <div class="sub">${String(p.Codigo).padStart(4, "0")}${p.Marca ? " · " + esc(p.Marca) : ""} · ${esc(p.Categoria || "")}</div>
+      <div class="estq ${!serv && qtd <= 0 ? "zero" : ""}">${serv ? `Serviço · ${p.Duracao || "?"} min` : `Estoque: ${qtd}`}</div></div>`;
+  }).join("") : `<div class="vazio">Nenhum produto encontrado.</div>`;
+}
+function emAberto(){
+  const pago = {}; dados.abas.Recebimentos.forEach(x => { const k = String(x.dados.AReceber); pago[k] = (pago[k] || 0) + (Number(x.dados.Valor) || 0); });
+  const out = {}; const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  dados.abas.AReceber.forEach(x => {
+    const r = x.dados; if(!["Aberta","Parcial"].includes(r.Situacao)) return;
+    const falta = Math.max((Number(r.Valor) || 0) - (pago[String(r.ID)] || 0), 0); if(falta <= 0.005) return;
+    const o = out[r.Cliente] = out[r.Cliente] || { falta: 0, vencido: 0 };
+    o.falta += falta; const v = dt(r.Vencimento); if(v && v < hoje) o.vencido += falta;
+  });
+  return out;
+}
+function mostrarClientes(){
+  const q = norm($("#buscaC").value), dig = q.replace(/\D/g, ""), ab = pode("receber") ? emAberto() : {};
+  const agora = new Date();
+  const lista = dados.abas.Clientes.map(x => x.dados)
+    .filter(c => !q || norm(c.Nome).includes(q) || (dig.length >= 3 && String(c.Celular || "").replace(/\D/g, "").includes(dig)))
+    .sort((a, b) => String(a.Nome).localeCompare(String(b.Nome))).slice(0, 60);
+  $("#listaClientes").innerHTML = lista.length ? lista.map(c => {
+    const cel = String(c.Celular || "").replace(/\D/g, ""), a = ab[c.Nome];
+    const prox = dados.abas.Agenda.map(x => x.dados).filter(h => h.Cliente === c.Nome && ["Marcado","Confirmado"].includes(h.Situacao) && dt(h.Data) >= agora)
+      .sort((x, y) => dt(x.Data) - dt(y.Data))[0];
+    const nasc = dt(c.Nascimento);
+    return `<div class="card"><b>${esc(c.Nome)}</b>
+      <div class="sub">${cel ? `<a class="zap" href="https://wa.me/55${cel.replace(/^55/, "")}" target="_blank">WhatsApp ${esc(c.Celular)}</a>` : "sem celular"}${nasc ? ` · aniversário ${pad(nasc.getDate())}/${pad(nasc.getMonth()+1)}` : ""}${c.DiaVencimento ? ` · fatura dia ${esc(c.DiaVencimento)}` : ""}</div>
+      ${a ? `<div class="sub" style="color:${a.vencido > 0 ? "var(--verm)" : "inherit"}">Em aberto: ${brl(a.falta)}${a.vencido > 0 ? ` (vencido ${brl(a.vencido)})` : ""}</div>` : ""}
+      ${prox ? `<div class="sub">Próximo horário: ${dt(prox.Data).toLocaleDateString("pt-BR")} ${hm(dt(prox.Data))} · ${esc(prox.ServicoNome)}</div>` : ""}</div>`;
+  }).join("") : `<div class="vazio">Nenhuma cliente encontrada.</div>`;
+}
+
+// ---------- modal Finalizar ----------
+function fecharModal(){ $("#modal").style.display = "none"; }
+function abrirFinalizar(rid){
+  const a = dados.abas.Agenda.find(x => x.id === rid).dados, ini = dt(a.Inicio);
+  $("#modalCaixa").innerHTML = `<b>Finalizar: ${esc(a.Cliente)} · ${esc(a.ServicoNome)}</b>
+    <div class="sub">${a.Situacao === "Em atendimento" && ini ? `Começou às ${hm(ini)}. Agenda: ${a.Duracao} min.` : "Não apertou Iniciar: digite quantos minutos levou."}</div>
+    <label>Minutos (só se precisar corrigir)</label><input id="fMin" type="number" inputmode="numeric" min="1" max="720">
+    <label>Observação (por que foi mais rápido ou mais devagar)</label><textarea id="fObs" rows="3"></textarea>
+    <div class="btns"><button class="b" id="fNao">Voltar</button><button class="b p" id="fSim" style="flex:1">Finalizar</button></div>`;
+  $("#modal").style.display = "flex";
+  $("#fNao").onclick = fecharModal;
+  $("#fSim").onclick = () => acaoHorario(rid, "finalizar", $("#fObs").value, $("#fMin").value);
+}
+
+// ---------- eventos ----------
+$("#lgOk").onclick = entrar; $("#lgNova").onclick = criarConta;
+$("#lgSenha").addEventListener("keydown", e => { if(e.key === "Enter") entrar(); });
+$("#sair").onclick = () => { if(fila.length && !confirm("Ainda há ações guardadas sem internet. Sair mesmo assim?")) return;
+  auth = null; eu = null; dados = null; fila = []; salvarLocal(); localStorage.removeItem("cel_dados"); mostrarLogin(""); };
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => { tela = b.dataset.t; mostrar(); });
+$("#dia").value = diaStr(new Date());
+$("#dia").onchange = mostrar;
+const mudarDia = n => { const d = new Date($("#dia").value + "T12:00"); d.setDate(d.getDate() + n); $("#dia").value = diaStr(d); mostrar(); };
+$("#diaAnt").onclick = () => mudarDia(-1); $("#diaProx").onclick = () => mudarDia(1);
+$("#buscaP").oninput = mostrar; $("#buscaC").oninput = mostrar;
+$("#listaAgenda").onclick = e => {
+  const b = e.target.closest("button[data-a]"); if(!b) return;
+  if(b.dataset.a === "finalizar") abrirFinalizar(b.dataset.id); else acaoHorario(b.dataset.id, b.dataset.a);
+};
+$("#modal").onclick = e => { if(e.target.id === "modal") fecharModal(); };
+async function atualizar(){ try{ await enviarFila(); await lerTudo(); erro(""); }catch(e){ if(!(e instanceof SemInternet)) erro(e.message); } mostrar(); }
+$("#atualizado").onclick = atualizar;
+window.addEventListener("online", atualizar);
+document.addEventListener("visibilitychange", () => { if(!document.hidden && auth && !$("#app").hidden) atualizar(); });
+setInterval(() => { if(auth && !document.hidden && !$("#app").hidden) atualizar(); }, 60000);
+
+if(!URL_S || !CHAVE) mostrarLogin("Falta configurar o Supabase (config.js).");
+else if(auth) abrir(); else mostrarLogin("");
+</script>
+</body>
+</html>
