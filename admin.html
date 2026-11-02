@@ -218,7 +218,8 @@ main{max-width:960px;margin:0 auto;padding:18px 16px 120px}
   <section id="tela-entrar" class="tela-entrar" hidden>
     <div class="cartao">
       <h2 class="titulo-tela">Entrar no painel</h2>
-      <p class="desc-tela">Digite a senha do painel do catálogo.</p>
+      <p class="desc-tela" id="desc-entrar">Digite a senha do painel do catálogo.</p>
+      <div class="campo" id="campo-email" hidden><label for="conta-email">E-mail</label><input id="conta-email" type="email" autocomplete="username" inputmode="email" onkeydown="if(event.key==='Enter') $('conta-senha').focus()"></div>
       <div class="campo"><label for="conta-senha">Senha</label><input id="conta-senha" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter') enviarEntrar()"></div>
       <label class="marcador"><input type="checkbox" id="lembrar" checked> Lembrar neste aparelho</label>
       <button class="btn btn-principal largo" id="btn-entrar" onclick="enviarEntrar()">Entrar</button>
@@ -228,7 +229,7 @@ main{max-width:960px;margin:0 auto;padding:18px 16px 120px}
   <!-- LISTA -->
   <section id="tela-lista" hidden>
     <h2 class="titulo-tela">Produtos</h2>
-    <p class="desc-tela">Toque num produto para editar. O que você salvar aparece no site em alguns minutos (o Google demora um pouco para atualizar).</p>
+    <p class="desc-tela" data-planilha data-banco="Toque num produto para editar. O que você salvar já vale no site.">Toque num produto para editar. O que você salvar aparece no site em alguns minutos (o Google demora um pouco para atualizar).</p>
     <div class="barra-lista"><div class="campo"><input id="busca" type="search" placeholder="Buscar por nome, marca, categoria ou código" oninput="renderizarLista()"></div></div>
     <div class="chips" id="filtros"></div>
     <div class="contagem" id="contagem"></div>
@@ -327,10 +328,18 @@ main{max-width:960px;margin:0 auto;padding:18px 16px 120px}
       <button class="btn btn-principal" id="btn-salvar-loja" onclick="salvarLoja()">Salvar</button>
       <div class="info-planilha" id="info-planilha"></div>
     </div>
+    <div class="cartao" id="cartao-importar" hidden style="margin-top:14px">
+      <h3 style="margin:0 0 6px;font-size:16px">Trazer os produtos da planilha</h3>
+      <p class="desc-tela" style="margin:0 0 12px">Copia para o banco os produtos, opções, fotos, marcas e categorias da planilha do Google. Pode fazer de novo: atualiza os mesmos produtos, sem duplicar. A planilha fica guardada como estava.</p>
+      <div class="campo"><label for="senha-antiga">Senha antiga do painel (opcional)</label><input id="senha-antiga" type="password" autocomplete="off"><span class="dica">Com ela vêm também as encomendas que estão na planilha.</span></div>
+      <button class="btn btn-principal" id="btn-importar" onclick="importarDaPlanilha()">Importar da planilha</button>
+    </div>
   </section>
 </main>
 
 <input type="file" id="arquivo-foto-var" accept="image/*,.heic,.heif" hidden>
+<script src="config.js"></script>
+<script src="banco.js"></script>
 <script>
 // Painel do catálogo do Studio Renata Almeida, ligado à planilha do Google pelo Apps Script.
 // Lê e grava pelo Apps Script (Codigo.gs). Nada é apagado: excluir marca a coluna Situação
@@ -359,6 +368,7 @@ let variacoesEmEdicao = [];   // [{valores: {Cor: "Nude", Volume: "30ml"}, preco
 let tiposEmEdicao = [];       // tipos marcados no produto aberto, ex. ["Cor", "Volume"]
 let tiposDaPlanilha = [];     // colunas de tipo da aba de opções (vêm do Apps Script)
 const TIPOS_PADRAO = ["Cor", "Volume", "Fragrância"];
+const NO_SITE_QUANDO = () => window.BANCO_ATIVO ? "Já vale no site (atualize a página do site para ver)." : "No site ele atualiza em alguns minutos.";
 const EXEMPLO_TIPO = { Cor: "Ex: Nude", Volume: "Ex: 300ml", "Fragrância": "Ex: Lavanda", Tamanho: "Ex: M" };
 
 // ===================== utilidades =====================
@@ -415,7 +425,8 @@ function irPara(tela){
   else if(tela === "listas"){ acaoLista = null; mostrarTela("listas"); renderizarListas(); }
   else if(tela === "loja"){
     $("loja-whatsapp").value = whatsappLoja;
-    $("info-planilha").innerHTML = planilhaInfo ? `Planilha ligada ao painel: <a href="${escaparHtml(planilhaInfo.url)}" target="_blank" rel="noopener">${escaparHtml(planilhaInfo.nome)}</a> (aba ${escaparHtml(planilhaInfo.aba)})` : "";
+    $("cartao-importar").hidden = !window.BANCO_ATIVO;
+    $("info-planilha").innerHTML = window.BANCO_ATIVO ? `Produtos no banco do Studio (o mesmo do programa). Conta: ${escaparHtml(bancoEmail())}` : planilhaInfo ? `Planilha ligada ao painel: <a href="${escaparHtml(planilhaInfo.url)}" target="_blank" rel="noopener">${escaparHtml(planilhaInfo.nome)}</a> (aba ${escaparHtml(planilhaInfo.aba)})` : "";
     mostrarTela("loja");
   }
 }
@@ -436,6 +447,7 @@ async function buscarScript(url, opcoes){
   catch(e){ throw Object.assign(new Error(navigator.onLine === false ? "Sem internet. Confira a conexão e tente de novo." : AVISO_ACESSO), { doScript: true }); }
 }
 async function chamarScript(dados){
+  if(window.BANCO_ATIVO) return chamarBanco(dados); // banco do Studio (Supabase): banco.js
   // "text/plain" de propósito: com application/json o navegador faz uma consulta antes (preflight)
   // que o Apps Script não responde, e o envio falha.
   const r = await buscarScript(URL_APPS_SCRIPT, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(Object.assign({ token: sessao }, dados)) });
@@ -482,19 +494,20 @@ function sair(semAvisarServidor){
 }
 async function enviarEntrar(){
   esconderAviso();
-  const s = $("conta-senha").value;
+  const s = $("conta-senha").value, email = $("conta-email").value.trim();
+  if(window.BANCO_ATIVO && !email) return mostrarAviso("erro", "Digite o e-mail.");
   if(!s) return mostrarAviso("erro", "Digite a senha.");
   const btn = $("btn-entrar");
   ocupado(btn, "Entrando...");
   try{
-    const rc = await chamarScript({ acao: "entrar", senha: s });
+    const rc = await chamarScript({ acao: "entrar", senha: s, email });
     if(!rc.token) throw Object.assign(new Error("O Apps Script ainda é o antigo. Cole o código novo (Codigo.gs) e publique uma Nova versão."), { doScript: true });
     guardarSessao(rc.token, $("lembrar").checked);
     $("conta-senha").value = "";
     await abrirLista(rc.dados);
   }catch(e){
     guardarSessao("");
-    mostrarAviso("erro", e.codigo === "senha" ? e.message : e.doScript ? e.message : "Não consegui falar com a planilha. Confira sua internet e tente de novo.");
+    mostrarAviso("erro", e.codigo === "senha" ? e.message : e.doScript ? e.message : `Não consegui falar com ${window.BANCO_ATIVO ? "o banco" : "a planilha"}. Confira sua internet e tente de novo.`);
   }finally{ livre(btn); }
 }
 async function abrirLista(dados){
@@ -807,7 +820,7 @@ function moverNaLista(tipo, i, dir){
     deste.filter(x => pos(x.nome) === 1e6));
   renderizarListas();
   filaOrdem = filaOrdem.then(() => chamarScript({ acao: "lista", tipo, operacao: "ordenar", nomes: ativos }))
-    .then(() => mostrarAviso("sucesso", `Ordem das ${tipo === "Marca" ? "marcas" : "categorias"} salva. No site muda em alguns minutos.`, false, true))
+    .then(() => mostrarAviso("sucesso", `Ordem das ${tipo === "Marca" ? "marcas" : "categorias"} salva. ${window.BANCO_ATIVO ? "Já vale no site." : "No site muda em alguns minutos."}`, false, true))
     .catch(e => { tratarErro(e, "Não consegui salvar a ordem."); carregarTudo().then(renderizarListas).catch(() => {}); });
 }
 async function enviarLista(tipo, operacao, nome, para, btn, semMarca){
@@ -1054,7 +1067,7 @@ function enviarSalvar(f, ops, temFotoNova){
       salvandoAgora--;
       atualizarListaSeAberta();
       if(salvandoAgora) return avisoSalvando(`Salvando (${salvandoAgora} na fila)...`);
-      mostrarAviso("sucesso", `“${f.nome}” salvo (ID ${r.id}). ${f.noSite ? "No site ele atualiza em alguns minutos." : "Ele não aparece no site (Mostrar no site desligado)."}`, false, true);
+      mostrarAviso("sucesso", `“${f.nome}” salvo (ID ${r.id}). ${f.noSite ? NO_SITE_QUANDO() : "Ele não aparece no site (Mostrar no site desligado)."}`, false, true);
     }catch(e){
       salvandoAgora--;
       try{ await carregarTudo(); atualizarListaSeAberta(); }catch(_){} // desfaz o que foi mostrado antes da hora
@@ -1098,12 +1111,28 @@ async function mudarSituacao(excluir){
     await carregarTudo(r.dados);
     if(!excluir){ filtroAtual = "ativos"; posicaoNaLista = 0; }
     voltarParaLista();
-    mostrarAviso("sucesso", excluir ? `“${g.nome}” foi para os Excluídos e sai do site em alguns minutos.` : `“${g.nome}” foi restaurado.`, false, true);
+    mostrarAviso("sucesso", excluir ? `“${g.nome}” foi para os Excluídos e ${window.BANCO_ATIVO ? "já saiu do site" : "sai do site em alguns minutos"}.` : `“${g.nome}” foi restaurado.`, false, true);
   }catch(e){ tratarErro(e, excluir ? "Não consegui excluir." : "Não consegui restaurar."); }
   finally{ livre(btn); }
 }
 function excluirProduto(){ return mudarSituacao(true); }
 function restaurarProduto(){ return mudarSituacao(false); }
+
+// ===================== importar da planilha (troca para o banco) =====================
+async function importarDaPlanilha(){
+  esconderAviso();
+  if(!confirm("Trazer agora os produtos da planilha para o banco? Os que já vieram antes são atualizados, sem duplicar.")) return;
+  const btn = $("btn-importar");
+  ocupado(btn, "Importando...");
+  try{
+    const r = await importarPlanilhaParaBanco({ urlScript: URL_APPS_SCRIPT, senhaAntiga: $("senha-antiga").value }, t => avisoSalvando(t));
+    $("senha-antiga").value = "";
+    await carregarTudo();
+    const trocados = (r.codigosTrocados || []).map(([de, para]) => `${de} → ${para}`).join(", ");
+    mostrarAviso("sucesso", `Pronto: ${r.produtos} produtos e ${r.opcoes} opções no banco${r.encomendas ? `, e ${r.encomendas} encomendas` : ""}.${trocados ? ` Estes ganharam código novo porque o programa já usava o número: ${trocados}.` : ""}`, true);
+  }catch(e){ tratarErro(e, "Não consegui importar."); }
+  finally{ livre(btn); }
+}
 
 // ===================== loja =====================
 async function salvarLoja(){
@@ -1116,7 +1145,7 @@ async function salvarLoja(){
     const r = await chamarScript({ acao: "loja", whatsapp: zap });
     await carregarTudo(r.dados);
     $("loja-whatsapp").value = whatsappLoja;
-    mostrarAviso("sucesso", "WhatsApp salvo. No site ele atualiza em alguns minutos.");
+    mostrarAviso("sucesso", "WhatsApp salvo. " + NO_SITE_QUANDO());
   }catch(e){ tratarErro(e, "Não consegui salvar."); }
   finally{ livre(btn); }
 }
@@ -1124,6 +1153,15 @@ async function salvarLoja(){
 // ===================== início =====================
 (function iniciar(){
   try{ localStorage.removeItem("studio_painel_senha"); sessao = localStorage.getItem(CHAVE_SESSAO) || sessionStorage.getItem(CHAVE_SESSAO) || ""; }catch(e){ sessao = ""; }
+  if(window.BANCO_ATIVO){
+    // banco do Studio: entra com o e-mail e a senha da conta do programa
+    sessao = bancoLogado() ? "banco" : "";
+    $("campo-email").hidden = false;
+    $("conta-email").value = bancoEmail();
+    $("desc-entrar").textContent = "Entre com o e-mail e a senha da sua conta do programa do Studio.";
+    $("lembrar").parentElement.hidden = true;
+    document.querySelectorAll("[data-planilha]").forEach(el => el.textContent = el.dataset.banco || "");
+  }
   if(sessao) abrirLista();
   else mostrarTela("entrar");
 })();

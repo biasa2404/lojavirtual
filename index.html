@@ -2090,7 +2090,7 @@ function salvarCacheCatalogo(produtos, dataAtualizacao, textoId){
   }
 }
 
-async function buscarComTimeout(url, tempoLimiteMs){
+async function buscarComTimeout(url, tempoLimiteMs, opcoesFetch){
   const controlador = new AbortController();
   const timer = setTimeout(() => controlador.abort(), tempoLimiteMs);
   // acrescenta um parâmetro variável na URL e desativa o cache do navegador,
@@ -2098,7 +2098,7 @@ async function buscarComTimeout(url, tempoLimiteMs){
   const separador = url.includes("?") ? "&" : "?";
   const urlSemCache = `${url}${separador}_=${Date.now()}`;
   try{
-    return await fetch(urlSemCache, { signal: controlador.signal, cache: "no-store" });
+    return await fetch(urlSemCache, Object.assign({ signal: controlador.signal, cache: "no-store" }, opcoesFetch || {}));
   } finally {
     clearTimeout(timer);
   }
@@ -2120,6 +2120,20 @@ async function buscarPlanilha(qual, urlPublicada){
 const CHAVE_ORDEM_LISTAS = "studio_ordem_listas";
 let ORDEM_LISTAS = (() => { try{ return JSON.parse(localStorage.getItem(CHAVE_ORDEM_LISTAS)) || {}; }catch(e){ return {}; } })();
 async function buscarOrdemListas(){
+  // banco do Studio primeiro (painel novo); sem nada lá, a aba Listas da planilha
+  if(URL_SUPABASE && CHAVE_PUBLICA_SUPABASE){
+    try{
+      const r = await buscarComTimeout(`${URL_SUPABASE}/rest/v1/rpc/listas_publicas`, 8000, { method: "POST", headers: { apikey: CHAVE_PUBLICA_SUPABASE, "Content-Type": "application/json" }, body: "{}" });
+      const itens = r.ok ? await r.json() : [];
+      if(Array.isArray(itens) && itens.length){
+        const ordem = { Marca: [], Categoria: [] };
+        itens.forEach(x => { if(ordem[x.tipo] && x.nome && !/^exclu/.test(normalizar(x.situacao || ""))) ordem[x.tipo].push(x.nome); });
+        ORDEM_LISTAS = ordem;
+        try{ localStorage.setItem(CHAVE_ORDEM_LISTAS, JSON.stringify(ordem)); }catch(e){}
+        return;
+      }
+    }catch(e){ console.warn("Ordem das listas do banco indisponível.", e); }
+  }
   if(!URL_APPS_SCRIPT) return;
   try{
     const r = await buscarComTimeout(`${URL_APPS_SCRIPT}?csv=listas`, 8000);
@@ -2250,13 +2264,17 @@ function montarProdutosDoSupabase(itens){
   const varejoDe = v => tipoPreco === "Os dois" && Number(v.preco_varejo) > 0 ? Math.round(Number(v.preco_varejo) * 100) / 100 : null;
   const produtos = [];
   grupos.forEach(lista => {
-    lista.sort((a, b) => a.codigo - b.codigo);
-    const disponiveis = lista.filter(v => v.disponivel);
-    if(disponiveis.length === 0) return;
+    // a principal (código = Pai) primeiro
+    lista.sort((a, b) => (a.codigo !== Number(a.pai || a.codigo)) - (b.codigo !== Number(b.pai || b.codigo)) || a.codigo - b.codigo);
+    // tudo esgotado: o produto continua no site, "sob encomenda" (como na planilha)
+    const esgotado = !lista.some(v => v.disponivel);
+    const disponiveis = esgotado ? lista : lista.filter(v => v.disponivel);
     const fotosDe = v => String(v.fotos || "").split(",").map(f => f.trim()).filter(Boolean).map(resolverImagem);
+    const fotosDoProduto = v => String(v.fotos_produto || "").split(",").map(f => f.trim()).filter(Boolean).map(resolverImagem);
     const precos = disponiveis.map(v => Number(v.preco)).filter(n => n > 0);
     const precoBase = precos.length ? Math.min(...precos) : 0;
-    const imagens = [...new Set(lista.flatMap(fotosDe))].slice(0, 5);
+    // fotos do produto (painel) primeiro; sem elas, as fotos de cada variação (programa)
+    const imagens = [...new Set(lista.flatMap(fotosDoProduto).concat(lista.flatMap(fotosDe)))].slice(0, 5);
     // Tipos de variação: os do programa (livres, ex. Cor, Lado) ou, sem eles, Cor/Tamanho/Voltagem.
     const opcoesDe = v => {
       let livre = v.variacao && typeof v.variacao === "object" && !Array.isArray(v.variacao) ? v.variacao : null;
@@ -2282,17 +2300,20 @@ function montarProdutosDoSupabase(itens){
     })).filter(c => Object.keys(c.opcoes).length) : null;
     const varejos = disponiveis.map(varejoDe).filter(n => n > 0);
     const primeiro = disponiveis[0];
+    const anteriores = lista.map(v => Number(v.preco_anterior)).filter(n => n > precoBase);
     produtos.push({
-      id: lista[0].codigo,
+      id: Number(lista[0].pai) || lista[0].codigo,
       tiposVariacao: temVariacao ? tiposVariacao : null,
       doPrograma: true, // id = código do produto no programa
-      nome: (lista[0].grupo || "").trim() || (lista.length > 1 && (lista[0].nome_base || "").trim()) || primeiro.nome,
+      nome: (lista[0].pai && (lista[0].nome_base || "").trim()) || (lista[0].grupo || "").trim() || (lista.length > 1 && (lista[0].nome_base || "").trim()) || primeiro.nome,
       categoria: primeiro.categoria || "Outros",
       preco: precoBase,
       // Selos marcados no programa (Cadastros › Produtos): vale se qualquer variação do grupo estiver marcada.
       recomendado: lista.some(v => v.destaque === true),
       novo: lista.some(v => v.novo === true),
       ofertaEspecial: lista.some(v => v.oferta === true),
+      precoAnterior: anteriores.length ? Math.max(...anteriores) : 0,
+      esgotado,
       marca: (lista.find(v => v.marca) || {}).marca || "",
       eKit: lista.some(v => v.kit === true),
       itensKit: String((lista.find(v => v.itens_kit) || {}).itens_kit || "").split(/\r?\n|;/).map(x => x.trim()).filter(Boolean),
@@ -2347,6 +2368,7 @@ async function carregarProdutosDaPlanilha(){
       atualizarLinkWhatsappIndisponivel();
     }
 
+    catalogoDoBanco = produtosDoSupabase.length > 0;
     const produtos = produtosDoSupabase.length > 0 ? produtosDoSupabase : linhas.filter(l => /^\d+$/.test((l["id"]||"").trim()))
       // Situação (coluna do painel): Excluído e Fora do site não aparecem; Esgotado aparece "sob encomenda"; vazio = Ativo
       .filter(l => !/^(exclu|fora)/.test(normalizar(l["situação"] || l["situacao"] || "")))
@@ -3442,9 +3464,16 @@ function gerarIdDeData(data){
 
 // Itens esgotados (encomenda) vão também para a aba "Encomendas" da planilha, pelo Apps Script do painel.
 let pedidoEmEnvio = "";
+var catalogoDoBanco = false; // true quando os produtos vieram do banco do Studio (Supabase)
 function anotarEncomendas(idPedido){
   const itens = Object.values(carrinho).filter(i => i.encomenda).map(i => ({ id: i.idProduto, nome: i.nome, qtd: i.qtd }));
-  if(!itens.length || !URL_APPS_SCRIPT || !idPedido) return;
+  if(!itens.length || !idPedido) return;
+  if(catalogoDoBanco && URL_SUPABASE){
+    fetch(`${URL_SUPABASE}/rest/v1/rpc/anotar_encomenda`, { method: "POST", keepalive: true, headers: { apikey: CHAVE_PUBLICA_SUPABASE, "Content-Type": "application/json" },
+      body: JSON.stringify({ pedido: String(idPedido), cliente: nomeCliente.trim(), itens }) }).catch(() => {});
+    return;
+  }
+  if(!URL_APPS_SCRIPT) return;
   const corpo = JSON.stringify({ acao: "encomenda", pedido: idPedido, cliente: nomeCliente.trim(), itens });
   try{
     if(navigator.sendBeacon && navigator.sendBeacon(URL_APPS_SCRIPT, new Blob([corpo], { type: "text/plain" }))) return;
