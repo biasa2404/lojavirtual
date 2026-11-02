@@ -2116,6 +2116,48 @@ async function buscarPlanilha(qual, urlPublicada){
   return buscarComTimeout(urlPublicada, 8000);
 }
 
+// Ordem das marcas e categorias (definida no painel, aba Listas da planilha).
+const CHAVE_ORDEM_LISTAS = "studio_ordem_listas";
+let ORDEM_LISTAS = (() => { try{ return JSON.parse(localStorage.getItem(CHAVE_ORDEM_LISTAS)) || {}; }catch(e){ return {}; } })();
+async function buscarOrdemListas(){
+  if(!URL_APPS_SCRIPT) return;
+  try{
+    const r = await buscarComTimeout(`${URL_APPS_SCRIPT}?csv=listas`, 8000);
+    const texto = r.ok ? await r.text() : "";
+    if(!texto || /^\s*[{<]/.test(texto)) return;
+    const ordem = { Marca: [], Categoria: [] };
+    analisarCSV(texto, ["tipo", "nome"]).forEach(l => {
+      const tipo = l["tipo"] === "Marca" ? "Marca" : l["tipo"] === "Categoria" ? "Categoria" : "";
+      if(tipo && l["nome"] && !/^exclu/.test(normalizar(l["situação"] || ""))) ordem[tipo].push(l["nome"]);
+    });
+    ORDEM_LISTAS = ordem;
+    try{ localStorage.setItem(CHAVE_ORDEM_LISTAS, JSON.stringify(ordem)); }catch(e){}
+  }catch(e){ console.warn("Ordem das listas indisponível.", e); }
+}
+// Junta grafias diferentes do mesmo nome (ex. "Erik Kened" e "erik  kened ") e monta os filtros na ordem do painel.
+const chaveDeNome = t => normalizar(String(t || "").replace(/\s+/g, " "));
+function montarFiltros(){
+  const listas = { Marca: "marca", Categoria: "categoria" }, saida = {};
+  Object.entries(listas).forEach(([tipo, campo]) => {
+    const ordem = (ORDEM_LISTAS[tipo] || []).map(n => String(n).replace(/\s+/g, " ").trim());
+    const certo = new Map();
+    ordem.forEach(n => { if(!certo.has(chaveDeNome(n))) certo.set(chaveDeNome(n), n); });
+    const usados = [];
+    PRODUTOS.forEach(p => {
+      const v = String(p[campo] || "").replace(/\s+/g, " ").trim();
+      if(!v){ p[campo] = campo === "categoria" ? "Outros" : ""; if(campo === "categoria" && !usados.includes("Outros")) usados.push("Outros"); return; }
+      const k = chaveDeNome(v);
+      if(!certo.has(k)) certo.set(k, v);
+      p[campo] = certo.get(k);
+      if(!usados.includes(p[campo])) usados.push(p[campo]);
+    });
+    const pos = n => { const i = ordem.findIndex(o => chaveDeNome(o) === chaveDeNome(n)); return i < 0 ? 1e6 : i; };
+    saida[tipo] = usados.map((n, i) => [n, i]).sort((a, b) => (pos(a[0]) - pos(b[0])) || (a[1] - b[1])).map(x => x[0]);
+  });
+  CATEGORIAS = ["Todas", ...saida.Categoria];
+  MARCAS = ["Todas", ...saida.Marca];
+}
+
 const ATRIBUTOS_VARIACAO = ["Cor", "Volume", "Fragrância"]; // ordem de exibição quando o produto não diz outra
 
 async function buscarCombinacoesDaPlanilha(){
@@ -2270,8 +2312,7 @@ async function carregarProdutosDaPlanilha(){
   const cache = carregarCacheCatalogo();
   if(cache){
     PRODUTOS = prepararVisual(cache.produtos);
-    CATEGORIAS = ["Todas", ...new Set(PRODUTOS.map(p => p.categoria))];
-    MARCAS = ["Todas", ...new Set(PRODUTOS.map(p => p.marca).filter(Boolean))];
+    montarFiltros();
     catalogoCarregado = true;
     dataCatalogoAtualizado = new Date(cache.salvoEm);
     textoIdCatalogo = cache.textoId || null;
@@ -2288,6 +2329,7 @@ async function carregarProdutosDaPlanilha(){
       buscarCombinacoesDaPlanilha(),
       garantirListaDeImagens(),
       buscarCatalogoDoSupabase(),
+      buscarOrdemListas(),
     ]);
     const planilhaOk = !!(respostaCatalogo && respostaCatalogo.ok);
     if(!planilhaOk && produtosDoSupabase.length === 0) throw new Error("Falha ao buscar planilha");
@@ -2344,8 +2386,7 @@ async function carregarProdutosDaPlanilha(){
 
     if(produtos.length > 0){
       PRODUTOS = prepararVisual(produtos);
-      CATEGORIAS = ["Todas", ...new Set(PRODUTOS.map(p => p.categoria))];
-    MARCAS = ["Todas", ...new Set(PRODUTOS.map(p => p.marca).filter(Boolean))];
+      montarFiltros();
       catalogoCarregado = true;
       // Usa a data/hora que a própria planilha informa como "última atualização"
       // só pro cache interno. O que aparece na tela é o valor bruto da célula.
@@ -3638,8 +3679,7 @@ atualizarLinkWhatsappIndisponivel();
 const cacheInicial = carregarCacheCatalogo();
 if(cacheInicial){
   PRODUTOS = prepararVisual(cacheInicial.produtos);
-  CATEGORIAS = ["Todas", ...new Set(PRODUTOS.map(p => p.categoria))];
-    MARCAS = ["Todas", ...new Set(PRODUTOS.map(p => p.marca).filter(Boolean))];
+  montarFiltros();
   catalogoCarregado = true;
   dataCatalogoAtualizado = new Date(cacheInicial.salvoEm);
   textoIdCatalogo = cacheInicial.textoId || null;

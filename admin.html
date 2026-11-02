@@ -92,9 +92,12 @@ main{max-width:960px;margin:0 auto;padding:18px 16px 120px}
 .linha-lista .acoes{display:flex;gap:14px}
 .linha-lista .painel-acao{flex-basis:100%;display:flex;flex-wrap:wrap;gap:8px;align-items:end}
 .linha-lista .painel-acao .campo{flex:1;min-width:180px;margin:0}
+.linha-lista .setas{display:flex;gap:4px}
+.btn-seta{width:34px;height:34px;border:1px solid var(--linha);border-radius:8px;background:var(--fundo);font-size:16px;line-height:1}
+.btn-seta:disabled{opacity:.3}
 .linha-lista.excluida .nome{color:var(--suave);text-decoration:line-through}
 .adicionar-lista{display:flex;gap:8px;margin-top:12px}
-.adicionar-lista input{flex:1}
+.adicionar-lista input{flex:1;min-width:0;padding:12px;border:1px solid var(--linha);border-radius:10px;background:var(--fundo)}
 .dia-encomenda{margin-top:18px}
 .dia-encomenda>h3{font-size:17px;margin:0 0 8px}
 .grupo-encomenda{background:var(--cartao);border:1px solid var(--linha);border-radius:14px;padding:12px 14px;margin-bottom:10px}
@@ -739,21 +742,22 @@ async function mudarEncomenda(btn, situacao){
 function itensDaLista(tipo){
   const campo = tipo === "Marca" ? "marca" : "categoria";
   const vivos = montarGrupos().filter(g => !g.excluido);
-  const mapa = new Map();
-  listas.filter(x => x.tipo === tipo).forEach(x => mapa.set(semAcento(x.nome), { nome: x.nome, excluida: semAcento(x.situacao).startsWith("exclu"), produtos: 0 }));
+  const mapa = new Map(), chave = t => semAcento(limparTexto(t)); // "Erik Kened" e "erik  kened" são a mesma
+  listas.filter(x => x.tipo === tipo).forEach((x, i) => { if(!mapa.has(chave(x.nome))) mapa.set(chave(x.nome), { nome: limparTexto(x.nome), excluida: semAcento(x.situacao).startsWith("exclu"), produtos: 0, pos: i }); });
   vivos.forEach(g => {
     const v = limparTexto(g[campo]); if(!v) return;
-    const k = semAcento(v);
-    if(!mapa.has(k)) mapa.set(k, { nome: v, excluida: false, produtos: 0 });
+    const k = chave(v);
+    if(!mapa.has(k)) mapa.set(k, { nome: v, excluida: false, produtos: 0, pos: 1e6 });
     const x = mapa.get(k); x.produtos++; x.excluida = false;
   });
-  return [...mapa.values()].sort((a, b) => (a.excluida - b.excluida) || semAcento(a.nome).localeCompare(semAcento(b.nome)));
+  // ordem = a definida com as setas (linhas da aba Listas); as que não estão lá vão para o fim, em ordem alfabética
+  return [...mapa.values()].sort((a, b) => (a.excluida - b.excluida) || (a.pos - b.pos) || semAcento(a.nome).localeCompare(semAcento(b.nome)));
 }
 function renderizarListas(){
   ["Categoria", "Marca"].forEach(tipo => {
     const itens = itensDaLista(tipo);
     const outros = nome => itens.filter(x => !x.excluida && x.nome !== nome);
-    $("lista-" + tipo).innerHTML = itens.map(x => {
+    $("lista-" + tipo).innerHTML = itens.map((x, i) => {
       const n = escaparHtml(x.nome).replace(/'/g, "&#39;"), js = x.nome.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, "&quot;");
       const aberto = acaoLista && acaoLista.tipo === tipo && acaoLista.nome === x.nome ? acaoLista.modo : "";
       let painel = "";
@@ -763,6 +767,7 @@ function renderizarListas(){
         <button class="btn btn-perigo" id="btn-lista-ok" onclick="confirmarLista()">Excluir</button><button class="btn btn-borda" onclick="abrirAcaoLista(null)">Cancelar</button></div>`;
       return `<div class="linha-lista ${x.excluida ? "excluida" : ""}"><span class="nome">${escaparHtml(x.nome)}</span>
         <span class="conta">${x.excluida ? "Excluída" : `${x.produtos} ${x.produtos === 1 ? "produto" : "produtos"}`}</span>
+        ${x.excluida ? "" : `<span class="setas"><button class="btn-seta" aria-label="Subir" ${i === 0 ? "disabled" : ""} onclick="moverNaLista('${tipo}', ${i}, -1)">↑</button><button class="btn-seta" aria-label="Descer" ${!itens[i + 1] || itens[i + 1].excluida ? "disabled" : ""} onclick="moverNaLista('${tipo}', ${i}, 1)">↓</button></span>`}
         <span class="acoes">${x.excluida ? `<button class="btn-link" onclick="enviarLista('${tipo}', 'restaurar', '${js}')">Restaurar</button>`
           : `<button class="btn-link" onclick="abrirAcaoLista('${tipo}', '${js}', 'renomear')">Renomear</button><button class="btn-link" style="color:var(--erro)" onclick="abrirAcaoLista('${tipo}', '${js}', 'excluir')">Excluir</button>`}</span>${painel}</div>`;
     }).join("") || `<div class="vazio">Nenhuma ainda.</div>`;
@@ -789,6 +794,21 @@ function criarNaLista(tipo){
   if(!nome) return mostrarAviso("erro", "Digite o nome.");
   if(itensDaLista(tipo).some(x => !x.excluida && semAcento(x.nome) === semAcento(nome))) return mostrarAviso("erro", `${tipo} “${nome}” já existe.`);
   return enviarLista(tipo, "criar", nome, "", $("nova-" + tipo).nextElementSibling);
+}
+// Setas: muda a ordem na tela na hora e grava na planilha por trás (é a ordem dos filtros no site).
+let filaOrdem = Promise.resolve();
+function moverNaLista(tipo, i, dir){
+  const ativos = itensDaLista(tipo).filter(x => !x.excluida).map(x => x.nome);
+  const j = i + dir; if(j < 0 || j >= ativos.length) return;
+  [ativos[i], ativos[j]] = [ativos[j], ativos[i]];
+  const resto = listas.filter(x => x.tipo !== tipo), deste = listas.filter(x => x.tipo === tipo);
+  const pos = n => { const k = ativos.findIndex(a => semAcento(a) === semAcento(limparTexto(n))); return k < 0 ? 1e6 : k; };
+  listas = resto.concat(ativos.map(n => deste.find(x => semAcento(limparTexto(x.nome)) === semAcento(n)) || { tipo, nome: n, situacao: "Ativo" }),
+    deste.filter(x => pos(x.nome) === 1e6));
+  renderizarListas();
+  filaOrdem = filaOrdem.then(() => chamarScript({ acao: "lista", tipo, operacao: "ordenar", nomes: ativos }))
+    .then(() => mostrarAviso("sucesso", `Ordem das ${tipo === "Marca" ? "marcas" : "categorias"} salva. No site muda em alguns minutos.`, false, true))
+    .catch(e => { tratarErro(e, "Não consegui salvar a ordem."); carregarTudo().then(renderizarListas).catch(() => {}); });
 }
 async function enviarLista(tipo, operacao, nome, para, btn, semMarca){
   esconderAviso();
