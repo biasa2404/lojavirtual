@@ -80,22 +80,39 @@ async function pedirAuth(caminho, corpo){
   }
   return { access_token: d.access_token, refresh_token: d.refresh_token, expira: Date.now() + (d.expires_in || 3600) * 1000, email: (d.user && d.user.email) || (auth && auth.email) || "" };
 }
-async function token(){
-  const a = lerGuardado();
-  if(!a || !a.refresh_token) throw erro("Entre com seu e-mail e senha.", "senha");
-  if(Date.now() > a.expira - 60000){
+// Lê sempre o que está guardado no aparelho (outra aba pode ter renovado o login antes).
+function lerDoAparelho(){ try{ const a = JSON.parse(localStorage.getItem(GUARDA) || "null"); if(a && a.refresh_token) auth = a; }catch(e){} return auth; }
+let renovando = null; // uma renovação por vez (vários pedidos ao mesmo tempo usam a mesma)
+async function renovar(){
+  if(renovando) return renovando;
+  renovando = (async () => {
+    const a = lerDoAparelho();
+    if(!a || !a.refresh_token) throw erro("Entre com seu e-mail e senha.", "senha");
     try{ guardar(await pedirAuth("token?grant_type=refresh_token", { refresh_token: a.refresh_token })); }
-    catch(e){ if(e.codigo === "senha" || /invalid/i.test(e.message)) { guardar(null); throw erro("Entre de novo com seu e-mail e senha.", "senha"); } throw e; }
-  }
+    catch(e){
+      const outra = lerDoAparelho(); // outra aba já renovou: usa o login novo dela
+      if(outra && outra.refresh_token !== a.refresh_token && Date.now() < outra.expira - 60000) return;
+      // só sai quando o Supabase diz que o login não vale mais; sem internet, mantém para tentar depois
+      if(e.codigo === "senha" || /invalid|not found|already used|revoked/i.test(e.message)) { guardar(null); throw erro("Entre de novo com seu e-mail e senha.", "senha"); }
+      throw e;
+    }
+  })();
+  try{ await renovando; } finally{ renovando = null; }
+}
+async function token(forcar){
+  let a = lerDoAparelho();
+  if(!a || !a.refresh_token) throw erro("Entre com seu e-mail e senha.", "senha");
+  if(forcar || Date.now() > a.expira - 5 * 60000) await renovar();
   return auth.access_token;
 }
-async function req(caminho, { metodo = "GET", corpo, cab = {} } = {}){
-  const t = await token();
+async function req(caminho, { metodo = "GET", corpo, cab = {} } = {}, deNovo){
+  const t = await token(deNovo);
   const r = await buscar(URL_BANCO + caminho, { method: metodo, headers: Object.assign({ apikey: CHAVE, Authorization: "Bearer " + t, "Content-Type": "application/json" }, cab),
     body: corpo === undefined ? undefined : (corpo instanceof Blob ? corpo : JSON.stringify(corpo)) });
   const texto = await r.text();
   let d = null; try{ d = texto ? JSON.parse(texto) : null; }catch(e){ d = texto; }
-  if(r.status === 401){ guardar(null); throw erro("Entre de novo com seu e-mail e senha.", "senha"); }
+  // 401: o login venceu (ex. celular dormindo). Renova uma vez e tenta de novo antes de pedir a senha.
+  if(r.status === 401){ if(!deNovo) return req(caminho, { metodo, corpo, cab }, true); guardar(null); throw erro("Entre de novo com seu e-mail e senha.", "senha"); }
   if(!r.ok){
     const m = String((d && (d.message || d.msg || d.error)) || r.status);
     const e = erro(/conflito/i.test(m) || r.status === 409 ? "conflito" : /aprovada/i.test(m) ? "Esta conta ainda não foi aprovada no programa do Studio (Usuários › Contas)." :
