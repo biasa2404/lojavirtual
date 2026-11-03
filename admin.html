@@ -223,6 +223,14 @@ main{max-width:960px;margin:0 auto;padding:18px 16px 120px}
       <div class="campo"><label for="conta-senha">Senha</label><input id="conta-senha" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter') enviarEntrar()"></div>
       <label class="marcador"><input type="checkbox" id="lembrar" checked> Lembrar neste aparelho</label>
       <button class="btn btn-principal largo" id="btn-entrar" onclick="enviarEntrar()">Entrar</button>
+      <div class="troca-modo" id="link-esqueci" hidden><button class="btn-link" onclick="abrirEsqueci()">Esqueci a senha</button></div>
+      <div id="bloco-esqueci" hidden style="margin-top:16px;border-top:1px solid var(--linha);padding-top:16px">
+        <p class="desc-tela" style="margin:0 0 10px">1) Digite o e-mail acima e toque em “Mandar e-mail”. 2) No e-mail, copie o código (ou toque e segure no botão e escolha “Copiar link”; não abra o link). 3) Cole aqui e escolha a senha nova.</p>
+        <button class="btn btn-borda largo" id="btn-mandar-codigo" onclick="mandarCodigo()">Mandar e-mail</button>
+        <div class="campo" style="margin-top:12px"><label for="rec-codigo">Código ou link do e-mail</label><input id="rec-codigo" autocomplete="one-time-code"></div>
+        <div class="campo"><label for="rec-senha">Senha nova</label><input id="rec-senha" type="password" autocomplete="new-password"></div>
+        <button class="btn btn-principal largo" id="btn-nova-senha" onclick="trocarSenha()">Trocar a senha e entrar</button>
+      </div>
     </div>
   </section>
 
@@ -509,6 +517,27 @@ async function enviarEntrar(){
     guardarSessao("");
     mostrarAviso("erro", e.codigo === "senha" ? e.message : e.doScript ? e.message : `Não consegui falar com ${window.BANCO_ATIVO ? "o banco" : "a planilha"}. Confira sua internet e tente de novo.`);
   }finally{ livre(btn); }
+}
+// ----- esqueci a senha (só com o banco do Studio) -----
+function abrirEsqueci(){ $("bloco-esqueci").hidden = false; esconderAviso(); $("conta-email").focus(); }
+async function mandarCodigo(){
+  esconderAviso();
+  const btn = $("btn-mandar-codigo"); ocupado(btn, "Mandando...");
+  try{ await bancoEsqueciSenha($("conta-email").value); mostrarAviso("sucesso", "E-mail enviado. Confira a caixa de entrada (e o spam).", true); }
+  catch(e){ mostrarAviso("erro", e.message); }
+  finally{ livre(btn); }
+}
+async function trocarSenha(){
+  esconderAviso();
+  const btn = $("btn-nova-senha"); ocupado(btn, "Trocando...");
+  try{
+    await bancoNovaSenha($("conta-email").value, $("rec-codigo").value, $("rec-senha").value);
+    guardarSessao("banco", true);
+    $("rec-codigo").value = ""; $("rec-senha").value = ""; $("bloco-esqueci").hidden = true;
+    await abrirLista();
+    mostrarAviso("sucesso", "Senha trocada. Use a senha nova daqui para frente (também no programa).", true);
+  }catch(e){ mostrarAviso("erro", e.message); }
+  finally{ livre(btn); }
 }
 async function abrirLista(dados){
   mostrarTela("lista");
@@ -1160,6 +1189,7 @@ async function salvarLoja(){
     $("conta-email").value = bancoEmail();
     $("desc-entrar").textContent = "Entre com o e-mail e a senha da sua conta do programa do Studio.";
     $("lembrar").parentElement.hidden = true;
+    $("link-esqueci").hidden = false;
     document.querySelectorAll("[data-planilha]").forEach(el => el.textContent = el.dataset.banco || "");
   }
   if(sessao) abrirLista();

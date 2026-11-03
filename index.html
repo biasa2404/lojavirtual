@@ -2123,7 +2123,9 @@ async function buscarOrdemListas(){
   // banco do Studio primeiro (painel novo); sem nada lá, a aba Listas da planilha
   if(URL_SUPABASE && CHAVE_PUBLICA_SUPABASE){
     try{
-      const r = await buscarComTimeout(`${URL_SUPABASE}/rest/v1/rpc/listas_publicas`, 8000, { method: "POST", headers: { apikey: CHAVE_PUBLICA_SUPABASE, "Content-Type": "application/json" }, body: "{}" });
+      // fetch direto: o "?_=" anti-cache vira parâmetro da função no Supabase e dá erro 400
+      const controle = new AbortController(), t = setTimeout(() => controle.abort(), 8000);
+      const r = await fetch(`${URL_SUPABASE}/rest/v1/rpc/listas_publicas`, { method: "POST", cache: "no-store", signal: controle.signal, headers: { apikey: CHAVE_PUBLICA_SUPABASE, "Content-Type": "application/json" }, body: "{}" }).finally(() => clearTimeout(t));
       const itens = r.ok ? await r.json() : [];
       if(Array.isArray(itens) && itens.length){
         const ordem = { Marca: [], Categoria: [] };
@@ -2233,12 +2235,13 @@ async function buscarCatalogoDoSupabase(){
       cache: "no-store",
     });
     if(!resposta.ok) throw new Error("Falha ao buscar o catálogo do Supabase");
+    // (null = banco fora do ar; [] = banco ainda sem produtos)
     const itens = await resposta.json();
     await garantirListaDeImagens();
     return montarProdutosDoSupabase(Array.isArray(itens) ? itens : []);
   }catch(e){
     console.warn("Não foi possível carregar o catálogo do Supabase.", e);
-    return [];
+    return null;
   }finally{
     clearTimeout(timer);
   }
@@ -2339,6 +2342,24 @@ async function carregarProdutosDaPlanilha(){
     textoIdCatalogo = cache.textoId || null;
   }
 
+  // 2) Banco do Studio (Supabase): com produtos lá, a planilha nem é consultada.
+  //    Se o banco não responder, fica a última versão guardada (cache); a planilha só entra se não houver nada.
+  if(URL_SUPABASE && CHAVE_PUBLICA_SUPABASE){
+    const [doBanco] = await Promise.all([buscarCatalogoDoSupabase(), buscarOrdemListas()]);
+    if(doBanco && doBanco.length){
+      catalogoDoBanco = true;
+      PRODUTOS = prepararVisual(doBanco);
+      montarFiltros();
+      catalogoCarregado = true;
+      dataCatalogoAtualizado = new Date();
+      const pad = n => String(n).padStart(2, "0"), d = dataCatalogoAtualizado;
+      textoIdCatalogo = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      salvarCacheCatalogo(doBanco, dataCatalogoAtualizado, textoIdCatalogo);
+      return;
+    }
+    if(doBanco === null && cache) return; // banco fora do ar: segue com o cache
+  }
+
   if(!URL_PLANILHA_CSV){
     // Link ainda não configurado: sem cache, fica no estado "indisponível"
     return;
@@ -2349,8 +2370,8 @@ async function carregarProdutosDaPlanilha(){
       buscarPlanilha("produtos", URL_PLANILHA_CSV).catch(e => { console.warn("Planilha indisponível.", e); return null; }),
       buscarCombinacoesDaPlanilha(),
       garantirListaDeImagens(),
-      buscarCatalogoDoSupabase(),
-      buscarOrdemListas(),
+      URL_SUPABASE ? [] : buscarCatalogoDoSupabase(), // com o banco ligado ele já foi consultado acima
+      URL_SUPABASE ? null : buscarOrdemListas(),
     ]);
     const planilhaOk = !!(respostaCatalogo && respostaCatalogo.ok);
     if(!planilhaOk && produtosDoSupabase.length === 0) throw new Error("Falha ao buscar planilha");

@@ -201,7 +201,8 @@ async function enviarFoto(f, nome){
   const bytes = new Uint8Array(bin.length);
   for(let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   const arquivo = `${nome}-${Date.now().toString(36)}.jpg`;
-  await req(`/storage/v1/object/${PASTA_FOTOS}/${arquivo}`, { metodo: "POST", corpo: new Blob([bytes], { type: "image/jpeg" }), cab: { "Content-Type": "image/jpeg", "x-upsert": "true" } });
+  await req(`/storage/v1/object/${PASTA_FOTOS}/${arquivo}`, { metodo: "POST", corpo: new Blob([bytes], { type: "image/jpeg" }), cab: { "Content-Type": "image/jpeg" } })
+    .catch(e => { throw /row-level|security|recusou: 4/i.test(e.message) ? erro("O banco não aceitou a foto: falta liberar a pasta de fotos no Supabase (arquivo fotos.sql).") : e; });
   return `${URL_BANCO}/storage/v1/object/public/${PASTA_FOTOS}/${arquivo}`;
 }
 
@@ -583,6 +584,34 @@ async function importarPlanilha({ urlScript, senhaAntiga }, avisar){
     return { mudancas: mud, resposta: { ok: true, produtos: produtosPlanilha.length, opcoes: qtdOps, encomendas: qtdEnc, codigosTrocados: trocados } };
   });
 }
+
+// ---------- esqueci a senha (mesmo jeito do programa: código do e-mail ou o link copiado) ----------
+async function esqueciSenha(email){
+  email = txt(email, 200).toLowerCase();
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw erro("Digite o e-mail da conta.");
+  const r = await buscar(`${URL_BANCO}/auth/v1/recover`, { method: "POST", headers: { apikey: CHAVE, "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
+  if(!r.ok && r.status !== 429) throw erro("Não consegui mandar o e-mail agora. Tente de novo em alguns minutos.");
+  if(r.status === 429) throw erro("Já mandamos um e-mail há pouco. Espere 1 minuto e tente de novo.");
+  return { ok: true };
+}
+async function novaSenha(email, codigo, nova){
+  email = txt(email, 200).toLowerCase(); codigo = String(codigo || "").trim();
+  if(!codigo) throw erro("Cole o código ou o link do e-mail.");
+  if(String(nova || "").length < 6) throw erro("A senha nova precisa ter pelo menos 6 caracteres.");
+  let corpo;
+  const m = codigo.match(/[?&]token=([^&\s]+)/);
+  if(m) corpo = { type: "recovery", token_hash: decodeURIComponent(m[1]) };
+  else corpo = { type: "recovery", email, token: codigo.replace(/\s/g, "") };
+  const r = await buscar(`${URL_BANCO}/auth/v1/verify`, { method: "POST", headers: { apikey: CHAVE, "Content-Type": "application/json" }, body: JSON.stringify(corpo) });
+  const d = await r.json().catch(() => ({}));
+  if(!r.ok || !d.access_token) throw erro("Código ou link inválido ou vencido. Peça outro e-mail.");
+  guardar({ access_token: d.access_token, refresh_token: d.refresh_token, expira: Date.now() + (d.expires_in || 3600) * 1000, email: (d.user && d.user.email) || email });
+  await req("/auth/v1/user", { metodo: "PUT", corpo: { password: nova } });
+  if(!(await rpc("e_membro"))){ guardar(null); throw erro("Senha trocada, mas esta conta ainda não foi aprovada no programa do Studio.", "senha"); }
+  return { ok: true, token: "banco" };
+}
+window.bancoEsqueciSenha = esqueciSenha;
+window.bancoNovaSenha = novaSenha;
 
 // ---------- entrada única usada pelo painel ----------
 async function chamarBanco(d){
