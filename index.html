@@ -3526,7 +3526,7 @@ function montarMensagemWhatsapp(idPedido){
   const nomePagamento = forma?.noPedido || forma?.nome || "—";
   let msg = "*Novo pedido — Studio Renata Almeida*\n";
   msg += `Pedido: #${idPedido}\n`;
-  if(tabelaDePrecoDoPedido()) msg += `Tabela de preço: ${tabelaDePrecoDoPedido()}\n`;
+  // (sem "Tabela de preço": o Studio só vende no varejo)
   msg += `\n`;
   msg += `Cliente: ${nomeCliente}\n\n`;
   itens.forEach(item => {
@@ -3571,7 +3571,7 @@ function montarPreviaVisual(idPedido){
   const blocoPagamento = (forma && forma.acrescimo)
     ? `<b>Total: ${formatarPreco(totalComAcrescimo())}</b>\nPagamento: ${escapeHtml(nomePagamento)}${parcelasEscolhidas > 1 ? ` — em ${parcelasEscolhidas}x de ${formatarPreco(valorParcela())}` : " — à vista"}`
     : `<b>Total: ${formatarPreco(totalCarrinho())}</b>\nPagamento: ${escapeHtml(nomePagamento)}`;
-  const linhaTabela = tabelaDePrecoDoPedido() ? `Tabela de preço: ${tabelaDePrecoDoPedido()}\n` : "";
+  const linhaTabela = ""; // o Studio só vende no varejo: sem "Tabela de preço"
   return `<b>Novo pedido — Studio Renata Almeida</b>\nPedido: #${idPedido}\n${linhaTabela}Cliente: ${escapeHtml(nomeCliente)}\n\n${linhas}\n\n${blocoPagamento}\n\n${blocoEntrega}\n\n<b>Importante:</b> A reserva dos produtos e as encomendas só são feitas mediante pagamento.`;
 }
 
