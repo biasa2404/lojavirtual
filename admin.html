@@ -348,7 +348,7 @@ main{max-width:960px;margin:0 auto;padding:18px 16px 120px}
   </section>
 </main>
 
-<input type="file" id="arquivo-foto-var" accept="image/*,.heic,.heif" hidden>
+<input type="file" id="arquivo-foto-var" accept="image/*" hidden>
 <script src="config.js"></script>
 <script src="banco.js"></script>
 <script>
@@ -627,15 +627,29 @@ function trocarExtensao(img){
 }
 function pareceHeic(a){ const t = (a.type || "").toLowerCase(), n = (a.name || "").toLowerCase(); return t === "image/heic" || t === "image/heif" || n.endsWith(".heic") || n.endsWith(".heif"); }
 // Reduz para no máximo 1600px e converte para JPEG; a foto só vai para o GitHub quando salvar.
+function abrirImagem(arquivo){
+  const url = URL.createObjectURL(arquivo);
+  return new Promise((ok, falha) => {
+    const i = new Image();
+    const tempo = setTimeout(() => falha(new Error("imagem")), 30000);
+    i.onload = () => { clearTimeout(tempo); ok({ img: i, url }); };
+    i.onerror = () => { clearTimeout(tempo); URL.revokeObjectURL(url); falha(new Error("imagem")); };
+    i.src = url;
+  });
+}
 async function prepararFoto(arquivo){
-  if(pareceHeic(arquivo)){
+  // iPhone e Mac abrem HEIC direto; o conversor só entra quando o navegador não consegue.
+  let aberta;
+  try{ aberta = await abrirImagem(arquivo); }
+  catch(e){
+    if(!pareceHeic(arquivo)) throw e;
     if(typeof heic2any === "undefined") throw new Error("heic");
     const r = await heic2any({ blob: arquivo, toType: "image/jpeg", quality: QUALIDADE_JPEG });
-    arquivo = Array.isArray(r) ? r[0] : r;
+    aberta = await abrirImagem(Array.isArray(r) ? r[0] : r);
   }
-  const url = URL.createObjectURL(arquivo);
+  const url = aberta.url;
   try{
-    const img = await new Promise((ok, falha) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => falha(new Error("imagem")); i.src = url; });
+    const img = aberta.img;
     let w = img.naturalWidth, h = img.naturalHeight;
     if(Math.max(w, h) > TAMANHO_MAXIMO_FOTO_PX){ const e = TAMANHO_MAXIMO_FOTO_PX / Math.max(w, h); w = Math.round(w * e); h = Math.round(h * e); }
     const c = document.createElement("canvas"); c.width = w; c.height = h;
@@ -922,7 +936,7 @@ function renderizarFotos(){
       </div>
     </div>`).join("") + (fotosEmEdicao.length < MAXIMO_FOTOS ? `
     <label class="add-foto" id="btn-fotos"><span class="mais">+</span><span id="texto-add-foto">Adicionar fotos</span>
-      <input type="file" accept="image/*,.heic,.heif" multiple onchange="adicionarFotos(this)"></label>` : "");
+      <input type="file" accept="image/*" multiple onchange="adicionarFotos(this)"></label>` : "");
 }
 function moverFoto(i, dir){ const j = i + dir; if(j < 0 || j >= fotosEmEdicao.length) return; [fotosEmEdicao[i], fotosEmEdicao[j]] = [fotosEmEdicao[j], fotosEmEdicao[i]]; renderizarFotos(); }
 function removerFoto(i){ fotosEmEdicao.splice(i, 1); renderizarFotos(); }
@@ -1004,7 +1018,7 @@ function renderizarVariacoes(){
   $("variacoes").innerHTML = variacoesEmEdicao.map((v, i) => `
     <div class="variacao">
       <label class="foto-var" title="Foto desta opção">${v.foto ? htmlImagem(v.foto) : `<span>+ foto da opção</span>`}
-        <input type="file" accept="image/*,.heic,.heif" onchange="fotoDaVariacao(${i}, this)"></label>
+        <input type="file" accept="image/*" onchange="fotoDaVariacao(${i}, this)"></label>
       <div class="campos-var">
         ${tipos.map(t => `<div class="campo"><label>${escaparHtml(t)}</label><input data-tipo="${escaparHtml(t)}" maxlength="40" value="${escaparHtml(v.valores[t] || "")}" placeholder="${escaparHtml(EXEMPLO_TIPO[t] || "")}"></div>`).join("")}
         <div class="campo"><label>Preço</label><input data-c="preco" inputmode="decimal" value="${escaparHtml(precoParaCampo(v.preco))}" oninput="mascararPreco(this)" placeholder="R$ 0,00"></div>
