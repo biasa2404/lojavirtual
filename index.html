@@ -1293,6 +1293,14 @@ header.top::after{height:2px!important;background:var(--champagne)!important}
 .opcao-pagamento .aviso-acrescimo-cartao{display:block;font-size:9px;font-weight:500;color:var(--texto-suave)}
 .opcao-pagamento.selecionada .aviso-acrescimo-cartao{color:#E8DCC7!important}
 .linha-detalhe-total{display:flex;justify-content:space-between;font-size:11px;color:var(--texto-suave);margin-bottom:6px}
+.item-subtotal .item-de{display:block;font-size:11px;font-weight:500;color:var(--texto-suave);text-align:right}
+.item-oferta{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:var(--cobre-fundo);color:var(--cobre-claro);padding:1px 6px;border-radius:3px;margin-right:4px}
+.economia-total{margin:0 0 10px;padding:0 0 10px;border-bottom:1px dashed var(--linha)}
+.economia-total .linha-sem-oferta,.economia-total .linha-economia{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.economia-total .linha-sem-oferta{font-size:12px;color:var(--texto-suave)}
+.economia-total .linha-economia{margin-top:4px;font-size:13px;font-weight:700;color:var(--cobre-claro)}
+.destaque-economia{display:inline-block;font-weight:700;color:var(--cobre-claro);background:var(--cobre-fundo);padding:2px 8px;border-radius:4px}
+.economia-total .linha-economia b{font-size:16px;background:var(--cobre-fundo);padding:2px 8px;border-radius:4px}
 
 /* rodapé, barra flutuante e abas do celular: Preto Suave com detalhes em champagne */
 .sales-footer,.abas,.order-float{background:var(--preto-suave)!important;color:#CFC6B8!important}
@@ -1545,6 +1553,7 @@ header.top::after{height:2px!important;background:var(--champagne)!important}
       </div>
 
       <div class="caixa-total">
+        <div class="economia-total" id="economia-total" hidden></div>
         <div class="linha-detalhe-total" id="linha-detalhe-total" style="display:none;"></div>
         <div class="linha-total-principal">
           <span class="rotulo" id="rotulo-total">Total</span>
@@ -3195,6 +3204,15 @@ function alterarQtd(chave, delta){
 function totalCarrinho(){
   return Object.values(carrinho).reduce((soma, item) => soma + item.qtd * item.preco, 0);
 }
+// Ofertas no pedido: mesmo critério do "de R$ X por" do catálogo (produto em oferta e item no preço da oferta).
+function precoAnteriorDoItem(item){
+  const p = PRODUTOS.find(x => String(x.id) === String(item.idProduto));
+  if(!p || !p.ofertaEspecial || !(p.precoAnterior > item.preco) || Math.abs(item.preco - p.preco) > 0.001) return 0;
+  return p.precoAnterior;
+}
+function economiaCarrinho(){
+  return Object.values(carrinho).reduce((soma, item) => { const de = precoAnteriorDoItem(item); return soma + (de ? item.qtd * (de - item.preco) : 0); }, 0);
+}
 function formaPagamentoAtual(){
   return FORMAS_PAGAMENTO.find(f => f.id === pagamentoEscolhido) || null;
 }
@@ -3247,9 +3265,9 @@ function renderCarrinho(){
             ${variacao ? `<div class="item-variacao">${escapeHtml(variacao)}</div>` : ""}
             ${item.encomenda ? `<div class="item-encomenda">Sob encomenda</div>` : ""}
           </div>
-          <div class="item-subtotal tabular">${formatarPreco(item.qtd * item.preco)}</div>
+          <div class="item-subtotal tabular">${precoAnteriorDoItem(item) ? `<s class="item-de">${formatarPreco(item.qtd * precoAnteriorDoItem(item))}</s>` : ""}${formatarPreco(item.qtd * item.preco)}</div>
         </div>
-        <div class="item-preco-unit tabular">${formatarPreco(item.preco)} cada</div>
+        <div class="item-preco-unit tabular">${precoAnteriorDoItem(item) ? `<span class="item-oferta">Oferta</span> de <s>${formatarPreco(precoAnteriorDoItem(item))}</s> por ` : ""}${formatarPreco(item.preco)} cada</div>
         <div class="item-controles">
           <div class="controle-qtd" style="width:104px;">
             <button class="btn-qtd" aria-label="Diminuir quantidade" onclick="alterarQtd('${chaveEscapada}', -1)">−</button>
@@ -3312,6 +3330,10 @@ function renderCarrinho(){
     linhaDetalhe.style.display = "none";
     document.getElementById("rotulo-total").textContent = "Total";
   }
+  const economia = economiaCarrinho(), blocoEconomia = document.getElementById("economia-total");
+  blocoEconomia.hidden = !(economia > 0.004);
+  blocoEconomia.innerHTML = economia > 0.004 ? `<div class="linha-sem-oferta"><span>Sem as ofertas seria</span><s class="tabular">${formatarPreco(totalCarrinho() + economia)}</s></div>
+    <div class="linha-economia"><span>Você economiza</span><b class="tabular">${formatarPreco(economia)}</b></div>` : "";
   let notaParcela = document.querySelector(".caixa-total .nota-parcela");
   if(!notaParcela){
     notaParcela = document.createElement("span");
@@ -3539,8 +3561,11 @@ function montarMensagemWhatsapp(idPedido){
     const cod = codigoDoProgramaNoCarrinho(item, itensChaves.get(item));
     const combo = codigoDoProgramaNoCarrinho(item, itensChaves.get(item), true);
     const nome = (combo && typeof combo === "object" && combo.nomePrograma) || item.nome;
-    msg += `• ${item.qtd}x ${nome}${cod ? ` (cód. ${cod})` : ""}${item.encomenda ? " *(encomenda)*" : ""} — ${formatarPreco(item.qtd * item.preco)}\n`;
+    const de = precoAnteriorDoItem(item);
+    msg += `• ${item.qtd}x ${nome}${cod ? ` (cód. ${cod})` : ""}${item.encomenda ? " *(encomenda)*" : ""} — ${de ? `~${formatarPreco(item.qtd * de)}~ ` : ""}${formatarPreco(item.qtd * item.preco)}${de ? " _(oferta)_" : ""}\n`;
   });
+  const economia = economiaCarrinho();
+  if(economia > 0.004) msg += `\nSem as ofertas seria: ~${formatarPreco(totalCarrinho() + economia)}~\n*Economia nas ofertas: ${formatarPreco(economia)}*\n`;
   if(itens.some(i => i.encomenda)) msg += `_Itens de encomenda: aguardo o prazo de chegada._\n`;
   if(forma && forma.acrescimo){
     msg += `\n*Total: ${formatarPreco(totalComAcrescimo())}*`;
@@ -3568,9 +3593,12 @@ function montarPreviaVisual(idPedido){
   const itens = Object.values(carrinho);
   const forma = formaPagamentoAtual();
   const nomePagamento = forma?.noPedido || forma?.nome || "—";
-  let linhas = itens.map(item =>
-    `• ${item.qtd}x ${escapeHtml(item.nome)}${item.encomenda ? " <b>(encomenda)</b>" : ""} — ${formatarPreco(item.qtd * item.preco)}`
-  ).join("\n");
+  let linhas = itens.map(item => {
+    const de = precoAnteriorDoItem(item);
+    return `• ${item.qtd}x ${escapeHtml(item.nome)}${item.encomenda ? " <b>(encomenda)</b>" : ""} — ${de ? `<s>${formatarPreco(item.qtd * de)}</s> ` : ""}${formatarPreco(item.qtd * item.preco)}${de ? " <i>(oferta)</i>" : ""}`;
+  }).join("\n");
+  const economia = economiaCarrinho();
+  if(economia > 0.004) linhas += `\n\nSem as ofertas seria: <s>${formatarPreco(totalCarrinho() + economia)}</s>\n<span class="destaque-economia">Economia nas ofertas: ${formatarPreco(economia)}</span>`;
   let blocoEntrega = entregaEscolhida === "entregar"
     ? `<b>Entrega</b>\n${escapeHtml(endereco.estadoNome)} · ${escapeHtml(endereco.cidade)}\nBairro: ${escapeHtml(endereco.bairro)}\nRua: ${escapeHtml(endereco.rua)}${endereco.complemento.trim() ? `\nComplemento: ${escapeHtml(endereco.complemento)}` : ""}\n<b>Frete: a combinar</b>`
     : `<b>Retirada no local</b>`;
