@@ -1888,9 +1888,10 @@ let marcaAtiva = "Todas";
 let modoVisualizacao = prefs.modoVisualizacao || "grade";
 let tamanhoVisualizacao = prefs.tamanhoVisualizacao || "grande";
 let tema = prefs.tema || "claro"; // a marca é clara (logo preta sobre Branco Quente)
-let ordenacaoAtual = prefs.ordenacao || "recomendado";
+let ordenacaoAtual = prefs.ordenacao2 || "padrao"; // ordenacao2: o padrão mudou em 04/11, a escolha antiga não vale mais
 
 const OPCOES_ORDENACAO = [
+  { id: "padrao", nome: "Padrão" },
   { id: "recomendado", nome: "Recomendados" },
   { id: "menor-preco", nome: "Menor preço" },
   { id: "maior-preco", nome: "Maior preço" },
@@ -1919,7 +1920,7 @@ function carregarPrefs(){
 }
 function salvarPrefs(){
   try{
-    localStorage.setItem("studio_prefs", JSON.stringify({ modoVisualizacao, tamanhoVisualizacao, tema, ordenacao: ordenacaoAtual }));
+    localStorage.setItem("studio_prefs", JSON.stringify({ modoVisualizacao, tamanhoVisualizacao, tema, ordenacao2: ordenacaoAtual }));
   }catch(e){
     // armazenamento indisponível — segue sem salvar preferências, sem travar o site
   }
@@ -3036,12 +3037,13 @@ function produtosFiltrados(){
   } else if(ordenacaoAtual === "mais-novos"){
     ordenados.sort((a, b) => b.id - a.id);
   } else {
-    // mesma categoria e mesma marca lado a lado (na ordem do painel); dentro de cada grupo,
-    // recomendados primeiro, mantendo a ordem original entre eles
+    // Padrão: mesma categoria e mesma marca lado a lado (na ordem do painel); dentro de cada grupo,
+    // recomendados primeiro. "Recomendados": todos os recomendados no topo e o resto na ordem padrão.
     const pos = (lista, v) => { const i = lista.indexOf(v); return i < 0 ? 1e6 : i; };
-    ordenados.sort((a, b) => (pos(CATEGORIAS, a.categoria) - pos(CATEGORIAS, b.categoria)) ||
-                             (pos(MARCAS, a.marca) - pos(MARCAS, b.marca)) ||
-                             ((b.recomendado ? 1 : 0) - (a.recomendado ? 1 : 0)));
+    const rec = (a, b) => (b.recomendado ? 1 : 0) - (a.recomendado ? 1 : 0);
+    ordenados.sort((a, b) => (ordenacaoAtual === "recomendado" ? rec(a, b) : 0) ||
+                             (pos(CATEGORIAS, a.categoria) - pos(CATEGORIAS, b.categoria)) ||
+                             (pos(MARCAS, a.marca) - pos(MARCAS, b.marca)) || rec(a, b));
   }
   return ordenados;
 }
