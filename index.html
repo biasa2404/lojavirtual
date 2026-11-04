@@ -3036,8 +3036,12 @@ function produtosFiltrados(){
   } else if(ordenacaoAtual === "mais-novos"){
     ordenados.sort((a, b) => b.id - a.id);
   } else {
+    // mesma categoria e mesma marca lado a lado (na ordem do painel); dentro de cada grupo,
     // recomendados primeiro, mantendo a ordem original entre eles
-    ordenados.sort((a, b) => (b.recomendado ? 1 : 0) - (a.recomendado ? 1 : 0));
+    const pos = (lista, v) => { const i = lista.indexOf(v); return i < 0 ? 1e6 : i; };
+    ordenados.sort((a, b) => (pos(CATEGORIAS, a.categoria) - pos(CATEGORIAS, b.categoria)) ||
+                             (pos(MARCAS, a.marca) - pos(MARCAS, b.marca)) ||
+                             ((b.recomendado ? 1 : 0) - (a.recomendado ? 1 : 0)));
   }
   return ordenados;
 }
