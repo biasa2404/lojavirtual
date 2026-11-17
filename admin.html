@@ -8,6 +8,9 @@
 <meta name="theme-color" content="#F8F6F1">
 <link rel="icon" type="image/png" sizes="64x64" href="imagens/site/favicon.png">
 <link rel="apple-touch-icon" sizes="180x180" href="imagens/site/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Painel Studio">
 <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js" defer></script>
 <style>
 @font-face{font-family:Montserrat;font-weight:300 700;font-display:swap;src:url(fontes/montserrat.woff2) format('woff2')}
@@ -92,9 +95,15 @@ main{max-width:960px;margin:0 auto;padding:18px 16px 120px}
 .linha-lista .acoes{display:flex;gap:14px}
 .linha-lista .painel-acao{flex-basis:100%;display:flex;flex-wrap:wrap;gap:8px;align-items:end}
 .linha-lista .painel-acao .campo{flex:1;min-width:180px;margin:0}
+.linha-lista .setas{display:flex;gap:4px}
+.btn-seta{width:34px;height:34px;border:1px solid var(--linha);border-radius:8px;background:var(--fundo);font-size:16px;line-height:1}
+.btn-seta:disabled{opacity:.3}
+.alca{width:30px;height:34px;display:flex;align-items:center;justify-content:center;color:var(--texto-suave,#888);font-size:18px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;flex-shrink:0}
+.linha-lista.arrastando{opacity:.85;box-shadow:0 6px 18px #0002;position:relative;z-index:5;background:var(--fundo,#fff)}
+body.arrastando-lista{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .linha-lista.excluida .nome{color:var(--suave);text-decoration:line-through}
 .adicionar-lista{display:flex;gap:8px;margin-top:12px}
-.adicionar-lista input{flex:1}
+.adicionar-lista input{flex:1;min-width:0;padding:12px;border:1px solid var(--linha);border-radius:10px;background:var(--fundo)}
 .dia-encomenda{margin-top:18px}
 .dia-encomenda>h3{font-size:17px;margin:0 0 8px}
 .grupo-encomenda{background:var(--cartao);border:1px solid var(--linha);border-radius:14px;padding:12px 14px;margin-bottom:10px}
@@ -215,17 +224,26 @@ main{max-width:960px;margin:0 auto;padding:18px 16px 120px}
   <section id="tela-entrar" class="tela-entrar" hidden>
     <div class="cartao">
       <h2 class="titulo-tela">Entrar no painel</h2>
-      <p class="desc-tela">Digite a senha do painel do catálogo.</p>
+      <p class="desc-tela" id="desc-entrar">Digite a senha do painel do catálogo.</p>
+      <div class="campo" id="campo-email" hidden><label for="conta-email">E-mail</label><input id="conta-email" type="email" autocomplete="username" inputmode="email" onkeydown="if(event.key==='Enter') $('conta-senha').focus()"></div>
       <div class="campo"><label for="conta-senha">Senha</label><input id="conta-senha" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter') enviarEntrar()"></div>
       <label class="marcador"><input type="checkbox" id="lembrar" checked> Lembrar neste aparelho</label>
       <button class="btn btn-principal largo" id="btn-entrar" onclick="enviarEntrar()">Entrar</button>
+      <div class="troca-modo" id="link-esqueci" hidden><button class="btn-link" onclick="abrirEsqueci()">Esqueci a senha</button></div>
+      <div id="bloco-esqueci" hidden style="margin-top:16px;border-top:1px solid var(--linha);padding-top:16px">
+        <p class="desc-tela" style="margin:0 0 10px">1) Digite o e-mail acima e toque em “Mandar e-mail”. 2) No e-mail, copie o código (ou toque e segure no botão e escolha “Copiar link”; não abra o link). 3) Cole aqui e escolha a senha nova.</p>
+        <button class="btn btn-borda largo" id="btn-mandar-codigo" onclick="mandarCodigo()">Mandar e-mail</button>
+        <div class="campo" style="margin-top:12px"><label for="rec-codigo">Código ou link do e-mail</label><input id="rec-codigo" autocomplete="one-time-code"></div>
+        <div class="campo"><label for="rec-senha">Senha nova</label><input id="rec-senha" type="password" autocomplete="new-password"></div>
+        <button class="btn btn-principal largo" id="btn-nova-senha" onclick="trocarSenha()">Trocar a senha e entrar</button>
+      </div>
     </div>
   </section>
 
   <!-- LISTA -->
   <section id="tela-lista" hidden>
     <h2 class="titulo-tela">Produtos</h2>
-    <p class="desc-tela">Toque num produto para editar. O que você salvar aparece no site em alguns minutos (o Google demora um pouco para atualizar).</p>
+    <p class="desc-tela" data-planilha data-banco="Toque num produto para editar. O que você salvar já vale no site.">Toque num produto para editar. O que você salvar aparece no site em alguns minutos (o Google demora um pouco para atualizar).</p>
     <div class="barra-lista"><div class="campo"><input id="busca" type="search" placeholder="Buscar por nome, marca, categoria ou código" oninput="renderizarLista()"></div></div>
     <div class="chips" id="filtros"></div>
     <div class="contagem" id="contagem"></div>
@@ -324,10 +342,18 @@ main{max-width:960px;margin:0 auto;padding:18px 16px 120px}
       <button class="btn btn-principal" id="btn-salvar-loja" onclick="salvarLoja()">Salvar</button>
       <div class="info-planilha" id="info-planilha"></div>
     </div>
+    <div class="cartao" id="cartao-importar" hidden style="margin-top:14px">
+      <h3 style="margin:0 0 6px;font-size:16px">Trazer os produtos da planilha</h3>
+      <p class="desc-tela" style="margin:0 0 12px">Copia para o banco os produtos, opções, fotos, marcas e categorias da planilha do Google. Pode fazer de novo: atualiza os mesmos produtos, sem duplicar. A planilha fica guardada como estava.</p>
+      <div class="campo"><label for="senha-antiga">Senha antiga do painel (opcional)</label><input id="senha-antiga" type="password" autocomplete="off"><span class="dica">Com ela vêm também as encomendas que estão na planilha.</span></div>
+      <button class="btn btn-principal" id="btn-importar" onclick="importarDaPlanilha()">Importar da planilha</button>
+    </div>
   </section>
 </main>
 
-<input type="file" id="arquivo-foto-var" accept="image/*,.heic,.heif" hidden>
+<input type="file" id="arquivo-foto-var" accept="image/*" hidden>
+<script src="config.js"></script>
+<script src="banco.js"></script>
 <script>
 // Painel do catálogo do Studio Renata Almeida, ligado à planilha do Google pelo Apps Script.
 // Lê e grava pelo Apps Script (Codigo.gs). Nada é apagado: excluir marca a coluna Situação
@@ -356,6 +382,7 @@ let variacoesEmEdicao = [];   // [{valores: {Cor: "Nude", Volume: "30ml"}, preco
 let tiposEmEdicao = [];       // tipos marcados no produto aberto, ex. ["Cor", "Volume"]
 let tiposDaPlanilha = [];     // colunas de tipo da aba de opções (vêm do Apps Script)
 const TIPOS_PADRAO = ["Cor", "Volume", "Fragrância"];
+const NO_SITE_QUANDO = () => window.BANCO_ATIVO ? "Já vale no site (atualize a página do site para ver)." : "No site ele atualiza em alguns minutos.";
 const EXEMPLO_TIPO = { Cor: "Ex: Nude", Volume: "Ex: 300ml", "Fragrância": "Ex: Lavanda", Tamanho: "Ex: M" };
 
 // ===================== utilidades =====================
@@ -412,7 +439,8 @@ function irPara(tela){
   else if(tela === "listas"){ acaoLista = null; mostrarTela("listas"); renderizarListas(); }
   else if(tela === "loja"){
     $("loja-whatsapp").value = whatsappLoja;
-    $("info-planilha").innerHTML = planilhaInfo ? `Planilha ligada ao painel: <a href="${escaparHtml(planilhaInfo.url)}" target="_blank" rel="noopener">${escaparHtml(planilhaInfo.nome)}</a> (aba ${escaparHtml(planilhaInfo.aba)})` : "";
+    $("cartao-importar").hidden = !window.BANCO_ATIVO;
+    $("info-planilha").innerHTML = window.BANCO_ATIVO ? `Produtos no banco do Studio (o mesmo do programa). Conta: ${escaparHtml(bancoEmail())}` : planilhaInfo ? `Planilha ligada ao painel: <a href="${escaparHtml(planilhaInfo.url)}" target="_blank" rel="noopener">${escaparHtml(planilhaInfo.nome)}</a> (aba ${escaparHtml(planilhaInfo.aba)})` : "";
     mostrarTela("loja");
   }
 }
@@ -433,6 +461,7 @@ async function buscarScript(url, opcoes){
   catch(e){ throw Object.assign(new Error(navigator.onLine === false ? "Sem internet. Confira a conexão e tente de novo." : AVISO_ACESSO), { doScript: true }); }
 }
 async function chamarScript(dados){
+  if(window.BANCO_ATIVO) return chamarBanco(dados); // banco do Studio (Supabase): banco.js
   // "text/plain" de propósito: com application/json o navegador faz uma consulta antes (preflight)
   // que o Apps Script não responde, e o envio falha.
   const r = await buscarScript(URL_APPS_SCRIPT, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(Object.assign({ token: sessao }, dados)) });
@@ -479,20 +508,42 @@ function sair(semAvisarServidor){
 }
 async function enviarEntrar(){
   esconderAviso();
-  const s = $("conta-senha").value;
+  const s = $("conta-senha").value, email = $("conta-email").value.trim();
+  if(window.BANCO_ATIVO && !email) return mostrarAviso("erro", "Digite o e-mail.");
   if(!s) return mostrarAviso("erro", "Digite a senha.");
   const btn = $("btn-entrar");
   ocupado(btn, "Entrando...");
   try{
-    const rc = await chamarScript({ acao: "entrar", senha: s });
+    const rc = await chamarScript({ acao: "entrar", senha: s, email });
     if(!rc.token) throw Object.assign(new Error("O Apps Script ainda é o antigo. Cole o código novo (Codigo.gs) e publique uma Nova versão."), { doScript: true });
     guardarSessao(rc.token, $("lembrar").checked);
     $("conta-senha").value = "";
     await abrirLista(rc.dados);
   }catch(e){
     guardarSessao("");
-    mostrarAviso("erro", e.codigo === "senha" ? e.message : e.doScript ? e.message : "Não consegui falar com a planilha. Confira sua internet e tente de novo.");
+    mostrarAviso("erro", e.codigo === "senha" ? e.message : e.doScript ? e.message : `Não consegui falar com ${window.BANCO_ATIVO ? "o banco" : "a planilha"}. Confira sua internet e tente de novo.`);
   }finally{ livre(btn); }
+}
+// ----- esqueci a senha (só com o banco do Studio) -----
+function abrirEsqueci(){ $("bloco-esqueci").hidden = false; esconderAviso(); $("conta-email").focus(); }
+async function mandarCodigo(){
+  esconderAviso();
+  const btn = $("btn-mandar-codigo"); ocupado(btn, "Mandando...");
+  try{ await bancoEsqueciSenha($("conta-email").value); mostrarAviso("sucesso", "E-mail enviado. Confira a caixa de entrada (e o spam).", true); }
+  catch(e){ mostrarAviso("erro", e.message); }
+  finally{ livre(btn); }
+}
+async function trocarSenha(){
+  esconderAviso();
+  const btn = $("btn-nova-senha"); ocupado(btn, "Trocando...");
+  try{
+    await bancoNovaSenha($("conta-email").value, $("rec-codigo").value, $("rec-senha").value);
+    guardarSessao("banco", true);
+    $("rec-codigo").value = ""; $("rec-senha").value = ""; $("bloco-esqueci").hidden = true;
+    await abrirLista();
+    mostrarAviso("sucesso", "Senha trocada. Use a senha nova daqui para frente (também no programa).", true);
+  }catch(e){ mostrarAviso("erro", e.message); }
+  finally{ livre(btn); }
 }
 async function abrirLista(dados){
   mostrarTela("lista");
@@ -579,15 +630,29 @@ function trocarExtensao(img){
 }
 function pareceHeic(a){ const t = (a.type || "").toLowerCase(), n = (a.name || "").toLowerCase(); return t === "image/heic" || t === "image/heif" || n.endsWith(".heic") || n.endsWith(".heif"); }
 // Reduz para no máximo 1600px e converte para JPEG; a foto só vai para o GitHub quando salvar.
+function abrirImagem(arquivo){
+  const url = URL.createObjectURL(arquivo);
+  return new Promise((ok, falha) => {
+    const i = new Image();
+    const tempo = setTimeout(() => falha(new Error("imagem")), 30000);
+    i.onload = () => { clearTimeout(tempo); ok({ img: i, url }); };
+    i.onerror = () => { clearTimeout(tempo); URL.revokeObjectURL(url); falha(new Error("imagem")); };
+    i.src = url;
+  });
+}
 async function prepararFoto(arquivo){
-  if(pareceHeic(arquivo)){
+  // iPhone e Mac abrem HEIC direto; o conversor só entra quando o navegador não consegue.
+  let aberta;
+  try{ aberta = await abrirImagem(arquivo); }
+  catch(e){
+    if(!pareceHeic(arquivo)) throw e;
     if(typeof heic2any === "undefined") throw new Error("heic");
     const r = await heic2any({ blob: arquivo, toType: "image/jpeg", quality: QUALIDADE_JPEG });
-    arquivo = Array.isArray(r) ? r[0] : r;
+    aberta = await abrirImagem(Array.isArray(r) ? r[0] : r);
   }
-  const url = URL.createObjectURL(arquivo);
+  const url = aberta.url;
   try{
-    const img = await new Promise((ok, falha) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => falha(new Error("imagem")); i.src = url; });
+    const img = aberta.img;
     let w = img.naturalWidth, h = img.naturalHeight;
     if(Math.max(w, h) > TAMANHO_MAXIMO_FOTO_PX){ const e = TAMANHO_MAXIMO_FOTO_PX / Math.max(w, h); w = Math.round(w * e); h = Math.round(h * e); }
     const c = document.createElement("canvas"); c.width = w; c.height = h;
@@ -739,21 +804,22 @@ async function mudarEncomenda(btn, situacao){
 function itensDaLista(tipo){
   const campo = tipo === "Marca" ? "marca" : "categoria";
   const vivos = montarGrupos().filter(g => !g.excluido);
-  const mapa = new Map();
-  listas.filter(x => x.tipo === tipo).forEach(x => mapa.set(semAcento(x.nome), { nome: x.nome, excluida: semAcento(x.situacao).startsWith("exclu"), produtos: 0 }));
+  const mapa = new Map(), chave = t => semAcento(limparTexto(t)); // "Erik Kened" e "erik  kened" são a mesma
+  listas.filter(x => x.tipo === tipo).forEach((x, i) => { if(!mapa.has(chave(x.nome))) mapa.set(chave(x.nome), { nome: limparTexto(x.nome), excluida: semAcento(x.situacao).startsWith("exclu"), produtos: 0, pos: i }); });
   vivos.forEach(g => {
     const v = limparTexto(g[campo]); if(!v) return;
-    const k = semAcento(v);
-    if(!mapa.has(k)) mapa.set(k, { nome: v, excluida: false, produtos: 0 });
+    const k = chave(v);
+    if(!mapa.has(k)) mapa.set(k, { nome: v, excluida: false, produtos: 0, pos: 1e6 });
     const x = mapa.get(k); x.produtos++; x.excluida = false;
   });
-  return [...mapa.values()].sort((a, b) => (a.excluida - b.excluida) || semAcento(a.nome).localeCompare(semAcento(b.nome)));
+  // ordem = a definida com as setas (linhas da aba Listas); as que não estão lá vão para o fim, em ordem alfabética
+  return [...mapa.values()].sort((a, b) => (a.excluida - b.excluida) || (a.pos - b.pos) || semAcento(a.nome).localeCompare(semAcento(b.nome)));
 }
 function renderizarListas(){
   ["Categoria", "Marca"].forEach(tipo => {
     const itens = itensDaLista(tipo);
     const outros = nome => itens.filter(x => !x.excluida && x.nome !== nome);
-    $("lista-" + tipo).innerHTML = itens.map(x => {
+    $("lista-" + tipo).innerHTML = itens.map((x, i) => {
       const n = escaparHtml(x.nome).replace(/'/g, "&#39;"), js = x.nome.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, "&quot;");
       const aberto = acaoLista && acaoLista.tipo === tipo && acaoLista.nome === x.nome ? acaoLista.modo : "";
       let painel = "";
@@ -761,8 +827,9 @@ function renderizarListas(){
         <button class="btn btn-principal" id="btn-lista-ok" onclick="confirmarLista()">Salvar</button><button class="btn btn-borda" onclick="abrirAcaoLista(null)">Cancelar</button></div>`;
       if(aberto === "excluir") painel = `<div class="painel-acao">${x.produtos ? `<div class="campo"><label>Mover os ${x.produtos} produto(s) para</label><select id="lista-destino">${outros(x.nome).map(o => `<option>${escaparHtml(o.nome)}</option>`).join("")}${tipo === "Marca" ? `<option value="">Sem marca</option>` : ""}</select></div>` : `<span class="conta">Nenhum produto usa. Pode excluir.</span>`}
         <button class="btn btn-perigo" id="btn-lista-ok" onclick="confirmarLista()">Excluir</button><button class="btn btn-borda" onclick="abrirAcaoLista(null)">Cancelar</button></div>`;
-      return `<div class="linha-lista ${x.excluida ? "excluida" : ""}"><span class="nome">${escaparHtml(x.nome)}</span>
+      return `<div class="linha-lista ${x.excluida ? "excluida" : ""}" data-nome="${n.replace(/"/g, "&quot;")}">${x.excluida ? "" : `<span class="alca" title="Arraste para mudar a ordem" aria-hidden="true" onpointerdown="comecarArraste(event, '${tipo}')">⠿</span>`}<span class="nome">${escaparHtml(x.nome)}</span>
         <span class="conta">${x.excluida ? "Excluída" : `${x.produtos} ${x.produtos === 1 ? "produto" : "produtos"}`}</span>
+        ${x.excluida ? "" : `<span class="setas"><button class="btn-seta" aria-label="Subir" ${i === 0 ? "disabled" : ""} onclick="moverNaLista('${tipo}', ${i}, -1)">↑</button><button class="btn-seta" aria-label="Descer" ${!itens[i + 1] || itens[i + 1].excluida ? "disabled" : ""} onclick="moverNaLista('${tipo}', ${i}, 1)">↓</button></span>`}
         <span class="acoes">${x.excluida ? `<button class="btn-link" onclick="enviarLista('${tipo}', 'restaurar', '${js}')">Restaurar</button>`
           : `<button class="btn-link" onclick="abrirAcaoLista('${tipo}', '${js}', 'renomear')">Renomear</button><button class="btn-link" style="color:var(--erro)" onclick="abrirAcaoLista('${tipo}', '${js}', 'excluir')">Excluir</button>`}</span>${painel}</div>`;
     }).join("") || `<div class="vazio">Nenhuma ainda.</div>`;
@@ -789,6 +856,54 @@ function criarNaLista(tipo){
   if(!nome) return mostrarAviso("erro", "Digite o nome.");
   if(itensDaLista(tipo).some(x => !x.excluida && semAcento(x.nome) === semAcento(nome))) return mostrarAviso("erro", `${tipo} “${nome}” já existe.`);
   return enviarLista(tipo, "criar", nome, "", $("nova-" + tipo).nextElementSibling);
+}
+// Setas: muda a ordem na tela na hora e grava na planilha por trás (é a ordem dos filtros no site).
+let filaOrdem = Promise.resolve();
+function moverNaLista(tipo, i, dir){
+  const ativos = itensDaLista(tipo).filter(x => !x.excluida).map(x => x.nome);
+  const j = i + dir; if(j < 0 || j >= ativos.length) return;
+  [ativos[i], ativos[j]] = [ativos[j], ativos[i]];
+  aplicarOrdem(tipo, ativos);
+}
+// Arrastar pela alça ⠿ (mouse ou dedo): a linha acompanha o ponteiro e, ao soltar, grava a nova ordem.
+function comecarArraste(ev, tipo){
+  const linha = ev.target.closest(".linha-lista"), caixa = $("lista-" + tipo);
+  if(!linha || ev.button > 0) return;
+  ev.preventDefault();
+  const antes = [...caixa.querySelectorAll(".linha-lista:not(.excluida)")].map(l => l.dataset.nome);
+  linha.classList.add("arrastando"); document.body.classList.add("arrastando-lista");
+  const mover = e => {
+    if(e.pointerId !== ev.pointerId) return;
+    e.preventDefault();
+    const outras = [...caixa.querySelectorAll(".linha-lista:not(.excluida)")].filter(l => l !== linha);
+    const depois = outras.find(l => { const r = l.getBoundingClientRect(); return e.clientY < r.top + r.height / 2; });
+    if(depois){ if(linha.nextElementSibling !== depois) caixa.insertBefore(linha, depois); }
+    else { const ult = outras[outras.length - 1]; if(ult && ult.nextElementSibling !== linha) ult.after(linha); }
+    // rola a página quando o dedo chega perto da borda
+    if(e.clientY < 60) window.scrollBy(0, -12); else if(e.clientY > window.innerHeight - 60) window.scrollBy(0, 12);
+  };
+  const soltar = e => {
+    if(e.pointerId !== ev.pointerId) return;
+    window.removeEventListener("pointermove", mover); window.removeEventListener("pointerup", soltar); window.removeEventListener("pointercancel", soltar);
+    linha.classList.remove("arrastando"); document.body.classList.remove("arrastando-lista");
+    const nomes = [...caixa.querySelectorAll(".linha-lista:not(.excluida)")].map(l => l.dataset.nome);
+    if(nomes.join("\n") === antes.join("\n")) return;
+    const ativos = itensDaLista(tipo).filter(x => !x.excluida).map(x => x.nome);
+    const chave = t => semAcento(limparTexto(t));
+    aplicarOrdem(tipo, nomes.map(n => ativos.find(a => chave(a) === chave(n)) || n));
+  };
+  // escuta na janela: mover a linha no meio da lista faria o navegador soltar o ponteiro preso à alça
+  window.addEventListener("pointermove", mover, { passive: false }); window.addEventListener("pointerup", soltar); window.addEventListener("pointercancel", soltar);
+}
+function aplicarOrdem(tipo, ativos){
+  const resto = listas.filter(x => x.tipo !== tipo), deste = listas.filter(x => x.tipo === tipo);
+  const pos = n => { const k = ativos.findIndex(a => semAcento(a) === semAcento(limparTexto(n))); return k < 0 ? 1e6 : k; };
+  listas = resto.concat(ativos.map(n => deste.find(x => semAcento(limparTexto(x.nome)) === semAcento(n)) || { tipo, nome: n, situacao: "Ativo" }),
+    deste.filter(x => pos(x.nome) === 1e6));
+  renderizarListas();
+  filaOrdem = filaOrdem.then(() => chamarScript({ acao: "lista", tipo, operacao: "ordenar", nomes: ativos }))
+    .then(() => mostrarAviso("sucesso", `Ordem das ${tipo === "Marca" ? "marcas" : "categorias"} salva. ${window.BANCO_ATIVO ? "Já vale no site." : "No site muda em alguns minutos."}`, false, true))
+    .catch(e => { tratarErro(e, "Não consegui salvar a ordem."); carregarTudo().then(renderizarListas).catch(() => {}); });
 }
 async function enviarLista(tipo, operacao, nome, para, btn, semMarca){
   esconderAviso();
@@ -857,7 +972,7 @@ function renderizarFotos(){
       </div>
     </div>`).join("") + (fotosEmEdicao.length < MAXIMO_FOTOS ? `
     <label class="add-foto" id="btn-fotos"><span class="mais">+</span><span id="texto-add-foto">Adicionar fotos</span>
-      <input type="file" accept="image/*,.heic,.heif" multiple onchange="adicionarFotos(this)"></label>` : "");
+      <input type="file" accept="image/*" multiple onchange="adicionarFotos(this)"></label>` : "");
 }
 function moverFoto(i, dir){ const j = i + dir; if(j < 0 || j >= fotosEmEdicao.length) return; [fotosEmEdicao[i], fotosEmEdicao[j]] = [fotosEmEdicao[j], fotosEmEdicao[i]]; renderizarFotos(); }
 function removerFoto(i){ fotosEmEdicao.splice(i, 1); renderizarFotos(); }
@@ -939,7 +1054,7 @@ function renderizarVariacoes(){
   $("variacoes").innerHTML = variacoesEmEdicao.map((v, i) => `
     <div class="variacao">
       <label class="foto-var" title="Foto desta opção">${v.foto ? htmlImagem(v.foto) : `<span>+ foto da opção</span>`}
-        <input type="file" accept="image/*,.heic,.heif" onchange="fotoDaVariacao(${i}, this)"></label>
+        <input type="file" accept="image/*" onchange="fotoDaVariacao(${i}, this)"></label>
       <div class="campos-var">
         ${tipos.map(t => `<div class="campo"><label>${escaparHtml(t)}</label><input data-tipo="${escaparHtml(t)}" maxlength="40" value="${escaparHtml(v.valores[t] || "")}" placeholder="${escaparHtml(EXEMPLO_TIPO[t] || "")}"></div>`).join("")}
         <div class="campo"><label>Preço</label><input data-c="preco" inputmode="decimal" value="${escaparHtml(precoParaCampo(v.preco))}" oninput="mascararPreco(this)" placeholder="R$ 0,00"></div>
@@ -987,6 +1102,9 @@ function lerFormulario(){
   f.tipos = comOpcoes ? tipos : [];
   if(!f.nome) return [null, null, "Digite o nome do produto."];
   if(!f.categoria) return [null, null, "Digite a categoria (ex: Cabelo, Pele, Corpo)."];
+  // mesmo aviso do Apps Script, conferido aqui antes de sair da tela (o salvar roda em segundo plano)
+  const igual = montarGrupos().find(g => !g.excluido && String(g.id) !== String(f.id) && semAcento(g.nome) === semAcento(f.nome));
+  if(igual && (!grupoEmEdicao || semAcento(grupoEmEdicao.nome) !== semAcento(f.nome))) return [null, null, `Já existe outro produto chamado “${igual.nome}” (ID ${igual.id}). Use outro nome.`];
   const conferirOferta = por => f.precoAnterior && !(f.precoAnterior > por) ? `O preço anterior precisa ser maior que o preço da oferta (${formatarPreco(por)}).` : null;
   if(!comOpcoes){
     if(!(f.preco > 0)) return [null, null, "Digite o preço do produto."];
@@ -1008,20 +1126,61 @@ function lerFormulario(){
   const e = conferirOferta(Math.min(...ops.map(o => o.preco))); if(e) return [null, null, e];
   return [f, ops, null];
 }
-async function salvarProduto(){
+// Salvar em segundo plano: o painel volta para a lista na hora e a planilha é gravada por trás
+// (o Apps Script leva alguns segundos). Os salvamentos vão em fila, um de cada vez.
+let filaSalvar = Promise.resolve(), salvandoAgora = 0;
+window.addEventListener("beforeunload", e => { if(salvandoAgora){ e.preventDefault(); e.returnValue = ""; } });
+function salvarProduto(){
   esconderAviso();
   const [f, ops, erro] = lerFormulario();
   if(erro) return mostrarAviso("erro", erro);
-  const btn = $("btn-salvar");
   const temFotoNova = f.fotos.some(x => typeof x === "object") || ops.some(o => typeof o.foto === "object");
-  ocupado(btn, temFotoNova ? "Enviando fotos e salvando..." : "Salvando...");
-  try{
-    const r = await chamarScript({ acao: "salvar", produto: f, opcoes: ops });
-    await carregarTudo(r.dados);
-    voltarParaLista();
-    mostrarAviso("sucesso", `“${f.nome}” salvo (ID ${r.id}). ${f.noSite ? "No site ele atualiza em alguns minutos." : "Ele não aparece no site (Mostrar no site desligado)."}`, false, true);
-  }catch(e){ tratarErro(e, "Não consegui salvar."); }
-  finally{ livre(btn); }
+  aplicarNaTela(f, ops);
+  voltarParaLista();
+  enviarSalvar(f, ops, temFotoNova);
+}
+function enviarSalvar(f, ops, temFotoNova){
+  salvandoAgora++;
+  avisoSalvando(temFotoNova ? `Enviando fotos e salvando “${f.nome}”...` : `Salvando “${f.nome}”...`);
+  filaSalvar = filaSalvar.then(async () => {
+    try{
+      const r = await chamarScript({ acao: "salvar", produto: f, opcoes: ops });
+      await carregarTudo(r.dados);
+      salvandoAgora--;
+      atualizarListaSeAberta();
+      if(salvandoAgora) return avisoSalvando(`Salvando (${salvandoAgora} na fila)...`);
+      mostrarAviso("sucesso", `“${f.nome}” salvo (ID ${r.id}). ${f.noSite ? NO_SITE_QUANDO() : "Ele não aparece no site (Mostrar no site desligado)."}`, false, true);
+    }catch(e){
+      salvandoAgora--;
+      try{ await carregarTudo(); atualizarListaSeAberta(); }catch(_){} // desfaz o que foi mostrado antes da hora
+      if(e && e.codigo === "senha") return tratarErro(e);
+      mostrarAviso("erro", e && e.doScript && e.message !== AVISO_ACESSO ? `Não salvou “${f.nome}”: ${e.message}` : `Não consegui salvar “${f.nome}”. Confira sua internet.`, true, true);
+      const b = document.createElement("button"); b.type = "button"; b.className = "btn-link"; b.style.marginLeft = "8px"; b.textContent = "Tentar de novo";
+      b.onclick = () => { esconderAviso(); aplicarNaTela(f, ops); atualizarListaSeAberta(); enviarSalvar(f, ops, temFotoNova); };
+      $("aviso-texto").appendChild(b);
+    }
+  });
+}
+function avisoSalvando(texto){
+  mostrarAviso("info", "", true, true);
+  $("aviso-texto").innerHTML = `<span class="icone-spin"></span> ${escaparHtml(texto)}`;
+}
+function atualizarListaSeAberta(){ if(!$("tela-lista").hidden){ const y = window.scrollY; renderizarLista(); window.scrollTo({ top: y }); } }
+// Mostra a alteração na lista antes da planilha responder (produto já existente).
+function aplicarNaTela(f, ops){
+  if(!f.id) return; // produto novo aparece quando a planilha devolver o ID
+  const p = produtos.find(x => String(x["ID"]).trim() === String(f.id));
+  if(!p) return;
+  const sim = v => v ? "Sim" : "Não";
+  const preco = ops.length ? Math.min(...ops.map(o => o.preco)) : f.preco;
+  const sit = situacaoDe(p).startsWith("exclu") ? "Excluído" : !f.noSite ? "Fora do site" : f.esgotado ? "Esgotado" : "Ativo";
+  Object.assign(p, { "Produto": f.nome, "Marca": f.marca, "Categoria": f.categoria, "Preço (R$)": preco, "Recomendado?": sim(f.destaque), "Novo?": sim(f.novo),
+    "Oferta Especial?": sim(f.oferta), "É Kit?": sim(f.kit), "Itens do Kit": f.kit ? f.itensKit : "", "Descrição": f.descricao, "Situação": sit,
+    "Preço anterior (R$)": f.precoAnterior || "" });
+  ["Imagem (URL)", "Imagem 2 (URL)", "Imagem 3 (URL)", "Imagem 4 (URL)", "Imagem 5 (URL)"].forEach((c, n) => { const x = f.fotos[n]; if(typeof x === "string" || x == null) p[c] = x || ""; });
+  opcoes = opcoes.filter(o => String(o["ID do produto"]).trim() !== String(f.id)).concat(ops.map(o => Object.assign({ "ID do produto": f.id,
+    "Ajuste de preço": Math.round((o.preco - preco) * 100) / 100, "Disponível?": o.esgotado ? "Não" : "Sim",
+    "Imagem da variação (URL)": typeof o.foto === "string" ? o.foto : "" }, o.valores)));
 }
 async function mudarSituacao(excluir){
   const g = grupoEmEdicao;
@@ -1034,12 +1193,28 @@ async function mudarSituacao(excluir){
     await carregarTudo(r.dados);
     if(!excluir){ filtroAtual = "ativos"; posicaoNaLista = 0; }
     voltarParaLista();
-    mostrarAviso("sucesso", excluir ? `“${g.nome}” foi para os Excluídos e sai do site em alguns minutos.` : `“${g.nome}” foi restaurado.`, false, true);
+    mostrarAviso("sucesso", excluir ? `“${g.nome}” foi para os Excluídos e ${window.BANCO_ATIVO ? "já saiu do site" : "sai do site em alguns minutos"}.` : `“${g.nome}” foi restaurado.`, false, true);
   }catch(e){ tratarErro(e, excluir ? "Não consegui excluir." : "Não consegui restaurar."); }
   finally{ livre(btn); }
 }
 function excluirProduto(){ return mudarSituacao(true); }
 function restaurarProduto(){ return mudarSituacao(false); }
+
+// ===================== importar da planilha (troca para o banco) =====================
+async function importarDaPlanilha(){
+  esconderAviso();
+  if(!confirm("Trazer agora os produtos da planilha para o banco? Os que já vieram antes são atualizados, sem duplicar.")) return;
+  const btn = $("btn-importar");
+  ocupado(btn, "Importando...");
+  try{
+    const r = await importarPlanilhaParaBanco({ urlScript: URL_APPS_SCRIPT, senhaAntiga: $("senha-antiga").value }, t => avisoSalvando(t));
+    $("senha-antiga").value = "";
+    await carregarTudo();
+    const trocados = (r.codigosTrocados || []).map(([de, para]) => `${de} → ${para}`).join(", ");
+    mostrarAviso("sucesso", `Pronto: ${r.produtos} produtos e ${r.opcoes} opções no banco${r.encomendas ? `, e ${r.encomendas} encomendas` : ""}.${trocados ? ` Estes ganharam código novo porque o programa já usava o número: ${trocados}.` : ""}`, true);
+  }catch(e){ tratarErro(e, "Não consegui importar."); }
+  finally{ livre(btn); }
+}
 
 // ===================== loja =====================
 async function salvarLoja(){
@@ -1052,7 +1227,7 @@ async function salvarLoja(){
     const r = await chamarScript({ acao: "loja", whatsapp: zap });
     await carregarTudo(r.dados);
     $("loja-whatsapp").value = whatsappLoja;
-    mostrarAviso("sucesso", "WhatsApp salvo. No site ele atualiza em alguns minutos.");
+    mostrarAviso("sucesso", "WhatsApp salvo. " + NO_SITE_QUANDO());
   }catch(e){ tratarErro(e, "Não consegui salvar."); }
   finally{ livre(btn); }
 }
@@ -1060,6 +1235,16 @@ async function salvarLoja(){
 // ===================== início =====================
 (function iniciar(){
   try{ localStorage.removeItem("studio_painel_senha"); sessao = localStorage.getItem(CHAVE_SESSAO) || sessionStorage.getItem(CHAVE_SESSAO) || ""; }catch(e){ sessao = ""; }
+  if(window.BANCO_ATIVO){
+    // banco do Studio: entra com o e-mail e a senha da conta do programa
+    sessao = bancoLogado() ? "banco" : "";
+    $("campo-email").hidden = false;
+    $("conta-email").value = bancoEmail();
+    $("desc-entrar").textContent = "Entre com o e-mail e a senha da sua conta do programa do Studio.";
+    $("lembrar").parentElement.hidden = true;
+    $("link-esqueci").hidden = false;
+    document.querySelectorAll("[data-planilha]").forEach(el => el.textContent = el.dataset.banco || "");
+  }
   if(sessao) abrirLista();
   else mostrarTela("entrar");
 })();

@@ -1293,6 +1293,14 @@ header.top::after{height:2px!important;background:var(--champagne)!important}
 .opcao-pagamento .aviso-acrescimo-cartao{display:block;font-size:9px;font-weight:500;color:var(--texto-suave)}
 .opcao-pagamento.selecionada .aviso-acrescimo-cartao{color:#E8DCC7!important}
 .linha-detalhe-total{display:flex;justify-content:space-between;font-size:11px;color:var(--texto-suave);margin-bottom:6px}
+.item-subtotal .item-de{display:block;font-size:11px;font-weight:500;color:var(--texto-suave);text-align:right}
+.item-oferta{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:var(--cobre-fundo);color:var(--cobre-claro);padding:1px 6px;border-radius:3px;margin-right:4px}
+.economia-total{margin:0 0 10px;padding:0 0 10px;border-bottom:1px dashed var(--linha)}
+.economia-total .linha-sem-oferta,.economia-total .linha-economia{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.economia-total .linha-sem-oferta{font-size:12px;color:var(--texto-suave)}
+.economia-total .linha-economia{margin-top:4px;font-size:13px;font-weight:700;color:var(--cobre-claro)}
+.destaque-economia{display:inline-block;font-weight:700;color:var(--cobre-claro);background:var(--cobre-fundo);padding:2px 8px;border-radius:4px}
+.economia-total .linha-economia b{font-size:16px;background:var(--cobre-fundo);padding:2px 8px;border-radius:4px}
 
 /* rodapé, barra flutuante e abas do celular: Preto Suave com detalhes em champagne */
 .sales-footer,.abas,.order-float{background:var(--preto-suave)!important;color:#CFC6B8!important}
@@ -1545,6 +1553,7 @@ header.top::after{height:2px!important;background:var(--champagne)!important}
       </div>
 
       <div class="caixa-total">
+        <div class="economia-total" id="economia-total" hidden></div>
         <div class="linha-detalhe-total" id="linha-detalhe-total" style="display:none;"></div>
         <div class="linha-total-principal">
           <span class="rotulo" id="rotulo-total">Total</span>
@@ -1722,8 +1731,6 @@ const URL_BASE_IMAGENS = "https://raw.githubusercontent.com/biasa2404/lojavirtua
 // Os dois valores ficam em config.js (o painel usa o mesmo arquivo).
 const URL_SUPABASE = (window.STUDIO_CONFIG || {}).supabaseUrl || "";
 const CHAVE_PUBLICA_SUPABASE = (window.STUDIO_CONFIG || {}).supabaseChave || "";
-// O catálogo do programa só entra quando usarPrograma = true (config.js) ou com ?programa=1 no link (teste).
-const USAR_PROGRAMA = !!(window.STUDIO_CONFIG || {}).usarPrograma || /[?&]programa=1\b/.test(location.search);
 
 const URL_LISTA_IMAGENS = "https://api.github.com/repos/biasa2404/lojavirtual/contents/imagens";
 const CHAVE_CACHE_LISTA_IMAGENS = "studio_lista_imagens";
@@ -1890,9 +1897,10 @@ let marcaAtiva = "Todas";
 let modoVisualizacao = prefs.modoVisualizacao || "grade";
 let tamanhoVisualizacao = prefs.tamanhoVisualizacao || "grande";
 let tema = prefs.tema || "claro"; // a marca é clara (logo preta sobre Branco Quente)
-let ordenacaoAtual = prefs.ordenacao || "recomendado";
+let ordenacaoAtual = prefs.ordenacao2 || "padrao"; // ordenacao2: o padrão mudou em 04/11, a escolha antiga não vale mais
 
 const OPCOES_ORDENACAO = [
+  { id: "padrao", nome: "Padrão" },
   { id: "recomendado", nome: "Recomendados" },
   { id: "menor-preco", nome: "Menor preço" },
   { id: "maior-preco", nome: "Maior preço" },
@@ -1921,7 +1929,7 @@ function carregarPrefs(){
 }
 function salvarPrefs(){
   try{
-    localStorage.setItem("studio_prefs", JSON.stringify({ modoVisualizacao, tamanhoVisualizacao, tema, ordenacao: ordenacaoAtual }));
+    localStorage.setItem("studio_prefs", JSON.stringify({ modoVisualizacao, tamanhoVisualizacao, tema, ordenacao2: ordenacaoAtual }));
   }catch(e){
     // armazenamento indisponível — segue sem salvar preferências, sem travar o site
   }
@@ -2092,7 +2100,7 @@ function salvarCacheCatalogo(produtos, dataAtualizacao, textoId){
   }
 }
 
-async function buscarComTimeout(url, tempoLimiteMs){
+async function buscarComTimeout(url, tempoLimiteMs, opcoesFetch){
   const controlador = new AbortController();
   const timer = setTimeout(() => controlador.abort(), tempoLimiteMs);
   // acrescenta um parâmetro variável na URL e desativa o cache do navegador,
@@ -2100,7 +2108,7 @@ async function buscarComTimeout(url, tempoLimiteMs){
   const separador = url.includes("?") ? "&" : "?";
   const urlSemCache = `${url}${separador}_=${Date.now()}`;
   try{
-    return await fetch(urlSemCache, { signal: controlador.signal, cache: "no-store" });
+    return await fetch(urlSemCache, Object.assign({ signal: controlador.signal, cache: "no-store" }, opcoesFetch || {}));
   } finally {
     clearTimeout(timer);
   }
@@ -2116,6 +2124,64 @@ async function buscarPlanilha(qual, urlPublicada){
     }catch(e){ console.warn("Apps Script indisponível; usando a planilha publicada.", e); }
   }
   return buscarComTimeout(urlPublicada, 8000);
+}
+
+// Ordem das marcas e categorias (definida no painel, aba Listas da planilha).
+const CHAVE_ORDEM_LISTAS = "studio_ordem_listas";
+let ORDEM_LISTAS = (() => { try{ return JSON.parse(localStorage.getItem(CHAVE_ORDEM_LISTAS)) || {}; }catch(e){ return {}; } })();
+async function buscarOrdemListas(){
+  // banco do Studio primeiro (painel novo); sem nada lá, a aba Listas da planilha
+  if(URL_SUPABASE && CHAVE_PUBLICA_SUPABASE){
+    try{
+      // fetch direto: o "?_=" anti-cache vira parâmetro da função no Supabase e dá erro 400
+      const controle = new AbortController(), t = setTimeout(() => controle.abort(), 8000);
+      const r = await fetch(`${URL_SUPABASE}/rest/v1/rpc/listas_publicas`, { method: "POST", cache: "no-store", signal: controle.signal, headers: { apikey: CHAVE_PUBLICA_SUPABASE, "Content-Type": "application/json" }, body: "{}" }).finally(() => clearTimeout(t));
+      const itens = r.ok ? await r.json() : [];
+      if(Array.isArray(itens) && itens.length){
+        const ordem = { Marca: [], Categoria: [] };
+        itens.forEach(x => { if(ordem[x.tipo] && x.nome && !/^exclu/.test(normalizar(x.situacao || ""))) ordem[x.tipo].push(x.nome); });
+        ORDEM_LISTAS = ordem;
+        try{ localStorage.setItem(CHAVE_ORDEM_LISTAS, JSON.stringify(ordem)); }catch(e){}
+        return;
+      }
+    }catch(e){ console.warn("Ordem das listas do banco indisponível.", e); }
+  }
+  if(!URL_APPS_SCRIPT) return;
+  try{
+    const r = await buscarComTimeout(`${URL_APPS_SCRIPT}?csv=listas`, 8000);
+    const texto = r.ok ? await r.text() : "";
+    if(!texto || /^\s*[{<]/.test(texto)) return;
+    const ordem = { Marca: [], Categoria: [] };
+    analisarCSV(texto, ["tipo", "nome"]).forEach(l => {
+      const tipo = l["tipo"] === "Marca" ? "Marca" : l["tipo"] === "Categoria" ? "Categoria" : "";
+      if(tipo && l["nome"] && !/^exclu/.test(normalizar(l["situação"] || ""))) ordem[tipo].push(l["nome"]);
+    });
+    ORDEM_LISTAS = ordem;
+    try{ localStorage.setItem(CHAVE_ORDEM_LISTAS, JSON.stringify(ordem)); }catch(e){}
+  }catch(e){ console.warn("Ordem das listas indisponível.", e); }
+}
+// Junta grafias diferentes do mesmo nome (ex. "Erik Kened" e "erik  kened ") e monta os filtros na ordem do painel.
+const chaveDeNome = t => normalizar(String(t || "").replace(/\s+/g, " "));
+function montarFiltros(){
+  const listas = { Marca: "marca", Categoria: "categoria" }, saida = {};
+  Object.entries(listas).forEach(([tipo, campo]) => {
+    const ordem = (ORDEM_LISTAS[tipo] || []).map(n => String(n).replace(/\s+/g, " ").trim());
+    const certo = new Map();
+    ordem.forEach(n => { if(!certo.has(chaveDeNome(n))) certo.set(chaveDeNome(n), n); });
+    const usados = [];
+    PRODUTOS.forEach(p => {
+      const v = String(p[campo] || "").replace(/\s+/g, " ").trim();
+      if(!v){ p[campo] = campo === "categoria" ? "Outros" : ""; if(campo === "categoria" && !usados.includes("Outros")) usados.push("Outros"); return; }
+      const k = chaveDeNome(v);
+      if(!certo.has(k)) certo.set(k, v);
+      p[campo] = certo.get(k);
+      if(!usados.includes(p[campo])) usados.push(p[campo]);
+    });
+    const pos = n => { const i = ordem.findIndex(o => chaveDeNome(o) === chaveDeNome(n)); return i < 0 ? 1e6 : i; };
+    saida[tipo] = usados.map((n, i) => [n, i]).sort((a, b) => (pos(a[0]) - pos(b[0])) || (a[1] - b[1])).map(x => x[0]);
+  });
+  CATEGORIAS = ["Todas", ...saida.Categoria];
+  MARCAS = ["Todas", ...saida.Marca];
 }
 
 const ATRIBUTOS_VARIACAO = ["Cor", "Volume", "Fragrância"]; // ordem de exibição quando o produto não diz outra
@@ -2167,7 +2233,7 @@ async function buscarCombinacoesDaPlanilha(){
 }
 
 async function buscarCatalogoDoSupabase(){
-  if(!URL_SUPABASE || !CHAVE_PUBLICA_SUPABASE || !USAR_PROGRAMA) return [];
+  if(!URL_SUPABASE || !CHAVE_PUBLICA_SUPABASE) return [];
   const controlador = new AbortController();
   const timer = setTimeout(() => controlador.abort(), 8000);
   try{
@@ -2179,12 +2245,13 @@ async function buscarCatalogoDoSupabase(){
       cache: "no-store",
     });
     if(!resposta.ok) throw new Error("Falha ao buscar o catálogo do Supabase");
+    // (null = banco fora do ar; [] = banco ainda sem produtos)
     const itens = await resposta.json();
     await garantirListaDeImagens();
     return montarProdutosDoSupabase(Array.isArray(itens) ? itens : []);
   }catch(e){
     console.warn("Não foi possível carregar o catálogo do Supabase.", e);
-    return [];
+    return null;
   }finally{
     clearTimeout(timer);
   }
@@ -2210,13 +2277,17 @@ function montarProdutosDoSupabase(itens){
   const varejoDe = v => tipoPreco === "Os dois" && Number(v.preco_varejo) > 0 ? Math.round(Number(v.preco_varejo) * 100) / 100 : null;
   const produtos = [];
   grupos.forEach(lista => {
-    lista.sort((a, b) => a.codigo - b.codigo);
-    const disponiveis = lista.filter(v => v.disponivel);
-    if(disponiveis.length === 0) return;
+    // a principal (código = Pai) primeiro
+    lista.sort((a, b) => (a.codigo !== Number(a.pai || a.codigo)) - (b.codigo !== Number(b.pai || b.codigo)) || a.codigo - b.codigo);
+    // tudo esgotado: o produto continua no site, "sob encomenda" (como na planilha)
+    const esgotado = !lista.some(v => v.disponivel);
+    const disponiveis = esgotado ? lista : lista.filter(v => v.disponivel);
     const fotosDe = v => String(v.fotos || "").split(",").map(f => f.trim()).filter(Boolean).map(resolverImagem);
+    const fotosDoProduto = v => String(v.fotos_produto || "").split(",").map(f => f.trim()).filter(Boolean).map(resolverImagem);
     const precos = disponiveis.map(v => Number(v.preco)).filter(n => n > 0);
     const precoBase = precos.length ? Math.min(...precos) : 0;
-    const imagens = [...new Set(lista.flatMap(fotosDe))].slice(0, 5);
+    // fotos do produto (painel) primeiro; sem elas, as fotos de cada variação (programa)
+    const imagens = [...new Set(lista.flatMap(fotosDoProduto).concat(lista.flatMap(fotosDe)))].slice(0, 5);
     // Tipos de variação: os do programa (livres, ex. Cor, Lado) ou, sem eles, Cor/Tamanho/Voltagem.
     const opcoesDe = v => {
       let livre = v.variacao && typeof v.variacao === "object" && !Array.isArray(v.variacao) ? v.variacao : null;
@@ -2242,17 +2313,20 @@ function montarProdutosDoSupabase(itens){
     })).filter(c => Object.keys(c.opcoes).length) : null;
     const varejos = disponiveis.map(varejoDe).filter(n => n > 0);
     const primeiro = disponiveis[0];
+    const anteriores = lista.map(v => Number(v.preco_anterior)).filter(n => n > precoBase);
     produtos.push({
-      id: lista[0].codigo,
+      id: Number(lista[0].pai) || lista[0].codigo,
       tiposVariacao: temVariacao ? tiposVariacao : null,
       doPrograma: true, // id = código do produto no programa
-      nome: (lista[0].grupo || "").trim() || (lista.length > 1 && (lista[0].nome_base || "").trim()) || primeiro.nome,
+      nome: (lista[0].pai && (lista[0].nome_base || "").trim()) || (lista[0].grupo || "").trim() || (lista.length > 1 && (lista[0].nome_base || "").trim()) || primeiro.nome,
       categoria: primeiro.categoria || "Outros",
       preco: precoBase,
       // Selos marcados no programa (Cadastros › Produtos): vale se qualquer variação do grupo estiver marcada.
       recomendado: lista.some(v => v.destaque === true),
       novo: lista.some(v => v.novo === true),
       ofertaEspecial: lista.some(v => v.oferta === true),
+      precoAnterior: anteriores.length ? Math.max(...anteriores) : 0,
+      esgotado,
       marca: (lista.find(v => v.marca) || {}).marca || "",
       eKit: lista.some(v => v.kit === true),
       itensKit: String((lista.find(v => v.itens_kit) || {}).itens_kit || "").split(/\r?\n|;/).map(x => x.trim()).filter(Boolean),
@@ -2272,11 +2346,28 @@ async function carregarProdutosDaPlanilha(){
   const cache = carregarCacheCatalogo();
   if(cache){
     PRODUTOS = prepararVisual(cache.produtos);
-    CATEGORIAS = ["Todas", ...new Set(PRODUTOS.map(p => p.categoria))];
-    MARCAS = ["Todas", ...new Set(PRODUTOS.map(p => p.marca).filter(Boolean))];
+    montarFiltros();
     catalogoCarregado = true;
     dataCatalogoAtualizado = new Date(cache.salvoEm);
     textoIdCatalogo = cache.textoId || null;
+  }
+
+  // 2) Banco do Studio (Supabase): com produtos lá, a planilha nem é consultada.
+  //    Se o banco não responder, fica a última versão guardada (cache); a planilha só entra se não houver nada.
+  if(URL_SUPABASE && CHAVE_PUBLICA_SUPABASE){
+    const [doBanco] = await Promise.all([buscarCatalogoDoSupabase(), buscarOrdemListas()]);
+    if(doBanco && doBanco.length){
+      catalogoDoBanco = true;
+      PRODUTOS = prepararVisual(doBanco);
+      montarFiltros();
+      catalogoCarregado = true;
+      dataCatalogoAtualizado = new Date();
+      const pad = n => String(n).padStart(2, "0"), d = dataCatalogoAtualizado;
+      textoIdCatalogo = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      salvarCacheCatalogo(doBanco, dataCatalogoAtualizado, textoIdCatalogo);
+      return;
+    }
+    if(doBanco === null && cache) return; // banco fora do ar: segue com o cache
   }
 
   if(!URL_PLANILHA_CSV){
@@ -2289,7 +2380,8 @@ async function carregarProdutosDaPlanilha(){
       buscarPlanilha("produtos", URL_PLANILHA_CSV).catch(e => { console.warn("Planilha indisponível.", e); return null; }),
       buscarCombinacoesDaPlanilha(),
       garantirListaDeImagens(),
-      buscarCatalogoDoSupabase(),
+      URL_SUPABASE ? [] : buscarCatalogoDoSupabase(), // com o banco ligado ele já foi consultado acima
+      URL_SUPABASE ? null : buscarOrdemListas(),
     ]);
     const planilhaOk = !!(respostaCatalogo && respostaCatalogo.ok);
     if(!planilhaOk && produtosDoSupabase.length === 0) throw new Error("Falha ao buscar planilha");
@@ -2307,6 +2399,7 @@ async function carregarProdutosDaPlanilha(){
       atualizarLinkWhatsappIndisponivel();
     }
 
+    catalogoDoBanco = produtosDoSupabase.length > 0;
     const produtos = produtosDoSupabase.length > 0 ? produtosDoSupabase : linhas.filter(l => /^\d+$/.test((l["id"]||"").trim()))
       // Situação (coluna do painel): Excluído e Fora do site não aparecem; Esgotado aparece "sob encomenda"; vazio = Ativo
       .filter(l => !/^(exclu|fora)/.test(normalizar(l["situação"] || l["situacao"] || "")))
@@ -2346,8 +2439,7 @@ async function carregarProdutosDaPlanilha(){
 
     if(produtos.length > 0){
       PRODUTOS = prepararVisual(produtos);
-      CATEGORIAS = ["Todas", ...new Set(PRODUTOS.map(p => p.categoria))];
-    MARCAS = ["Todas", ...new Set(PRODUTOS.map(p => p.marca).filter(Boolean))];
+      montarFiltros();
       catalogoCarregado = true;
       // Usa a data/hora que a própria planilha informa como "última atualização"
       // só pro cache interno. O que aparece na tela é o valor bruto da célula.
@@ -2954,8 +3046,13 @@ function produtosFiltrados(){
   } else if(ordenacaoAtual === "mais-novos"){
     ordenados.sort((a, b) => b.id - a.id);
   } else {
-    // recomendados primeiro, mantendo a ordem original entre eles
-    ordenados.sort((a, b) => (b.recomendado ? 1 : 0) - (a.recomendado ? 1 : 0));
+    // Padrão: mesma categoria e mesma marca lado a lado (na ordem do painel); dentro de cada grupo,
+    // recomendados primeiro. "Recomendados": todos os recomendados no topo e o resto na ordem padrão.
+    const pos = (lista, v) => { const i = lista.indexOf(v); return i < 0 ? 1e6 : i; };
+    const rec = (a, b) => (b.recomendado ? 1 : 0) - (a.recomendado ? 1 : 0);
+    ordenados.sort((a, b) => (ordenacaoAtual === "recomendado" ? rec(a, b) : 0) ||
+                             (pos(CATEGORIAS, a.categoria) - pos(CATEGORIAS, b.categoria)) ||
+                             (pos(MARCAS, a.marca) - pos(MARCAS, b.marca)) || rec(a, b));
   }
   return ordenados;
 }
@@ -3107,6 +3204,15 @@ function alterarQtd(chave, delta){
 function totalCarrinho(){
   return Object.values(carrinho).reduce((soma, item) => soma + item.qtd * item.preco, 0);
 }
+// Ofertas no pedido: mesmo critério do "de R$ X por" do catálogo (produto em oferta e item no preço da oferta).
+function precoAnteriorDoItem(item){
+  const p = PRODUTOS.find(x => String(x.id) === String(item.idProduto));
+  if(!p || !p.ofertaEspecial || !(p.precoAnterior > item.preco) || Math.abs(item.preco - p.preco) > 0.001) return 0;
+  return p.precoAnterior;
+}
+function economiaCarrinho(){
+  return Object.values(carrinho).reduce((soma, item) => { const de = precoAnteriorDoItem(item); return soma + (de ? item.qtd * (de - item.preco) : 0); }, 0);
+}
 function formaPagamentoAtual(){
   return FORMAS_PAGAMENTO.find(f => f.id === pagamentoEscolhido) || null;
 }
@@ -3159,9 +3265,9 @@ function renderCarrinho(){
             ${variacao ? `<div class="item-variacao">${escapeHtml(variacao)}</div>` : ""}
             ${item.encomenda ? `<div class="item-encomenda">Sob encomenda</div>` : ""}
           </div>
-          <div class="item-subtotal tabular">${formatarPreco(item.qtd * item.preco)}</div>
+          <div class="item-subtotal tabular">${precoAnteriorDoItem(item) ? `<s class="item-de">${formatarPreco(item.qtd * precoAnteriorDoItem(item))}</s>` : ""}${formatarPreco(item.qtd * item.preco)}</div>
         </div>
-        <div class="item-preco-unit tabular">${formatarPreco(item.preco)} cada</div>
+        <div class="item-preco-unit tabular">${precoAnteriorDoItem(item) ? `<span class="item-oferta">Oferta</span> de <s>${formatarPreco(precoAnteriorDoItem(item))}</s> por ` : ""}${formatarPreco(item.preco)} cada</div>
         <div class="item-controles">
           <div class="controle-qtd" style="width:104px;">
             <button class="btn-qtd" aria-label="Diminuir quantidade" onclick="alterarQtd('${chaveEscapada}', -1)">−</button>
@@ -3224,6 +3330,10 @@ function renderCarrinho(){
     linhaDetalhe.style.display = "none";
     document.getElementById("rotulo-total").textContent = "Total";
   }
+  const economia = economiaCarrinho(), blocoEconomia = document.getElementById("economia-total");
+  blocoEconomia.hidden = !(economia > 0.004);
+  blocoEconomia.innerHTML = economia > 0.004 ? `<div class="linha-sem-oferta"><span>Sem as ofertas seria</span><s class="tabular">${formatarPreco(totalCarrinho() + economia)}</s></div>
+    <div class="linha-economia"><span>Você economiza</span><b class="tabular">${formatarPreco(economia)}</b></div>` : "";
   let notaParcela = document.querySelector(".caixa-total .nota-parcela");
   if(!notaParcela){
     notaParcela = document.createElement("span");
@@ -3403,9 +3513,16 @@ function gerarIdDeData(data){
 
 // Itens esgotados (encomenda) vão também para a aba "Encomendas" da planilha, pelo Apps Script do painel.
 let pedidoEmEnvio = "";
+var catalogoDoBanco = false; // true quando os produtos vieram do banco do Studio (Supabase)
 function anotarEncomendas(idPedido){
   const itens = Object.values(carrinho).filter(i => i.encomenda).map(i => ({ id: i.idProduto, nome: i.nome, qtd: i.qtd }));
-  if(!itens.length || !URL_APPS_SCRIPT || !idPedido) return;
+  if(!itens.length || !idPedido) return;
+  if(catalogoDoBanco && URL_SUPABASE){
+    fetch(`${URL_SUPABASE}/rest/v1/rpc/anotar_encomenda`, { method: "POST", keepalive: true, headers: { apikey: CHAVE_PUBLICA_SUPABASE, "Content-Type": "application/json" },
+      body: JSON.stringify({ pedido: String(idPedido), cliente: nomeCliente.trim(), itens }) }).catch(() => {});
+    return;
+  }
+  if(!URL_APPS_SCRIPT) return;
   const corpo = JSON.stringify({ acao: "encomenda", pedido: idPedido, cliente: nomeCliente.trim(), itens });
   try{
     if(navigator.sendBeacon && navigator.sendBeacon(URL_APPS_SCRIPT, new Blob([corpo], { type: "text/plain" }))) return;
@@ -3437,15 +3554,18 @@ function montarMensagemWhatsapp(idPedido){
   const nomePagamento = forma?.noPedido || forma?.nome || "—";
   let msg = "*Novo pedido — Studio Renata Almeida*\n";
   msg += `Pedido: #${idPedido}\n`;
-  if(tabelaDePrecoDoPedido()) msg += `Tabela de preço: ${tabelaDePrecoDoPedido()}\n`;
+  // (sem "Tabela de preço": o Studio só vende no varejo)
   msg += `\n`;
   msg += `Cliente: ${nomeCliente}\n\n`;
   itens.forEach(item => {
     const cod = codigoDoProgramaNoCarrinho(item, itensChaves.get(item));
     const combo = codigoDoProgramaNoCarrinho(item, itensChaves.get(item), true);
     const nome = (combo && typeof combo === "object" && combo.nomePrograma) || item.nome;
-    msg += `• ${item.qtd}x ${nome}${cod ? ` (cód. ${cod})` : ""}${item.encomenda ? " *(encomenda)*" : ""} — ${formatarPreco(item.qtd * item.preco)}\n`;
+    const de = precoAnteriorDoItem(item);
+    msg += `• ${item.qtd}x ${nome}${cod ? ` (cód. ${cod})` : ""}${item.encomenda ? " *(encomenda)*" : ""} — ${de ? `~${formatarPreco(item.qtd * de)}~ ` : ""}${formatarPreco(item.qtd * item.preco)}${de ? " _(oferta)_" : ""}\n`;
   });
+  const economia = economiaCarrinho();
+  if(economia > 0.004) msg += `\nSem as ofertas seria: ~${formatarPreco(totalCarrinho() + economia)}~\n*Economia nas ofertas: ${formatarPreco(economia)}*\n`;
   if(itens.some(i => i.encomenda)) msg += `_Itens de encomenda: aguardo o prazo de chegada._\n`;
   if(forma && forma.acrescimo){
     msg += `\n*Total: ${formatarPreco(totalComAcrescimo())}*`;
@@ -3473,16 +3593,19 @@ function montarPreviaVisual(idPedido){
   const itens = Object.values(carrinho);
   const forma = formaPagamentoAtual();
   const nomePagamento = forma?.noPedido || forma?.nome || "—";
-  let linhas = itens.map(item =>
-    `• ${item.qtd}x ${escapeHtml(item.nome)}${item.encomenda ? " <b>(encomenda)</b>" : ""} — ${formatarPreco(item.qtd * item.preco)}`
-  ).join("\n");
+  let linhas = itens.map(item => {
+    const de = precoAnteriorDoItem(item);
+    return `• ${item.qtd}x ${escapeHtml(item.nome)}${item.encomenda ? " <b>(encomenda)</b>" : ""} — ${de ? `<s>${formatarPreco(item.qtd * de)}</s> ` : ""}${formatarPreco(item.qtd * item.preco)}${de ? " <i>(oferta)</i>" : ""}`;
+  }).join("\n");
+  const economia = economiaCarrinho();
+  if(economia > 0.004) linhas += `\n\nSem as ofertas seria: <s>${formatarPreco(totalCarrinho() + economia)}</s>\n<span class="destaque-economia">Economia nas ofertas: ${formatarPreco(economia)}</span>`;
   let blocoEntrega = entregaEscolhida === "entregar"
     ? `<b>Entrega</b>\n${escapeHtml(endereco.estadoNome)} · ${escapeHtml(endereco.cidade)}\nBairro: ${escapeHtml(endereco.bairro)}\nRua: ${escapeHtml(endereco.rua)}${endereco.complemento.trim() ? `\nComplemento: ${escapeHtml(endereco.complemento)}` : ""}\n<b>Frete: a combinar</b>`
     : `<b>Retirada no local</b>`;
   const blocoPagamento = (forma && forma.acrescimo)
     ? `<b>Total: ${formatarPreco(totalComAcrescimo())}</b>\nPagamento: ${escapeHtml(nomePagamento)}${parcelasEscolhidas > 1 ? ` — em ${parcelasEscolhidas}x de ${formatarPreco(valorParcela())}` : " — à vista"}`
     : `<b>Total: ${formatarPreco(totalCarrinho())}</b>\nPagamento: ${escapeHtml(nomePagamento)}`;
-  const linhaTabela = tabelaDePrecoDoPedido() ? `Tabela de preço: ${tabelaDePrecoDoPedido()}\n` : "";
+  const linhaTabela = ""; // o Studio só vende no varejo: sem "Tabela de preço"
   return `<b>Novo pedido — Studio Renata Almeida</b>\nPedido: #${idPedido}\n${linhaTabela}Cliente: ${escapeHtml(nomeCliente)}\n\n${linhas}\n\n${blocoPagamento}\n\n${blocoEntrega}\n\n<b>Importante:</b> A reserva dos produtos e as encomendas só são feitas mediante pagamento.`;
 }
 
@@ -3640,8 +3763,7 @@ atualizarLinkWhatsappIndisponivel();
 const cacheInicial = carregarCacheCatalogo();
 if(cacheInicial){
   PRODUTOS = prepararVisual(cacheInicial.produtos);
-  CATEGORIAS = ["Todas", ...new Set(PRODUTOS.map(p => p.categoria))];
-    MARCAS = ["Todas", ...new Set(PRODUTOS.map(p => p.marca).filter(Boolean))];
+  montarFiltros();
   catalogoCarregado = true;
   dataCatalogoAtualizado = new Date(cacheInicial.salvoEm);
   textoIdCatalogo = cacheInicial.textoId || null;
@@ -3707,8 +3829,8 @@ function aplicarEmpresa(d){
   const link = document.getElementById("link-instagram");
   if(link) link.hidden = !insta;
 }
-if(USAR_PROGRAMA) try{ aplicarEmpresa(JSON.parse(localStorage.getItem("studio_empresa_publica") || "null")); }catch(e){}
-if(URL_SUPABASE && USAR_PROGRAMA) fetch(`${URL_SUPABASE}/rest/v1/rpc/empresa_publica`, { method: "POST", headers: { apikey: CHAVE_PUBLICA_SUPABASE, "Content-Type": "application/json" }, body: "{}" })
+try{ aplicarEmpresa(JSON.parse(localStorage.getItem("studio_empresa_publica") || "null")); }catch(e){}
+if(URL_SUPABASE) fetch(`${URL_SUPABASE}/rest/v1/rpc/empresa_publica`, { method: "POST", headers: { apikey: CHAVE_PUBLICA_SUPABASE, "Content-Type": "application/json" }, body: "{}" })
   .then(r => r.ok ? r.json() : null)
   .then(d => { if(d && typeof d === "object"){ aplicarEmpresa(d); try{ localStorage.setItem("studio_empresa_publica", JSON.stringify(d)); }catch(e){} } })
   .catch(() => {});
