@@ -1561,6 +1561,7 @@ header.top::after{height:2px!important;background:var(--champagne)!important}
         </div>
       </div>
 
+      <div class="aviso-reserva aviso-pix" id="aviso-pix">🔒 <span id="texto-aviso-pix">Nosso PIX sempre aparece no nome do Studio Renata Almeida. Confira o nome antes de pagar.</span></div>
       <div class="aviso-reserva" id="aviso-reserva"><b>Importante:</b> A reserva dos produtos e as encomendas só são feitas mediante pagamento. <span id="aviso-reserva-extra"></span></div>
       <button class="btn-whatsapp" id="btn-enviar-whatsapp" disabled>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l5.06-1.33C8.51 21.5 10.2 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm5.2 14.2c-.22.62-1.28 1.18-1.77 1.24-.45.06-.99.09-2.7-.56-2.27-.88-3.74-3.13-3.85-3.28-.11-.15-.92-1.22-.92-2.33 0-1.11.58-1.65.79-1.87.21-.22.46-.28.61-.28.15 0 .3 0 .43.01.14.01.32-.05.5.38.19.44.64 1.54.7 1.65.06.11.1.24.02.39-.08.15-.12.24-.24.37-.12.13-.25.29-.36.39-.12.11-.24.24-.11.47.14.24.6 1 1.29 1.62.89.79 1.63 1.04 1.87 1.16.24.11.38.09.52-.06.14-.15.6-.7.76-.94.16-.24.32-.2.53-.12.21.08 1.36.64 1.6.76.24.11.4.17.46.27.06.1.06.58-.16 1.2z"/></svg>
@@ -1664,6 +1665,9 @@ function photoLabels(p){return p._ilustrativa?'<span class="concept-label">Image
 function metaProduto(p){return `<span>${escapeHtml(p.marca || p.categoria)}</span><span>${escapeHtml(p.marca ? p.categoria : '')}</span>`}
 function salesContact(){window.open('https://wa.me/'+NUMERO_WHATSAPP+'?text='+encodeURIComponent('Olá! Vim pelo catálogo do Studio Renata Almeida e gostaria de atendimento.'),'_blank','noopener,noreferrer')}
 let INSTAGRAM_EMPRESA = "";
+// Golpe do PIX: a cliente confere o nome de quem recebe (Cadastros › Empresa › "Nome no PIX" no programa).
+let NOME_NO_PIX = "Studio Renata Almeida";
+function avisoPix(){ return `Nosso PIX sempre aparece no nome de ${NOME_NO_PIX}. Confira o nome antes de pagar.`; }
 function abrirInstagram(){ if(INSTAGRAM_EMPRESA) window.open("https://instagram.com/" + INSTAGRAM_EMPRESA, "_blank", "noopener,noreferrer"); }
 function atualizarResumoVisual(){const qtd=totalItens();document.getElementById('header-count').textContent=qtd;document.getElementById('float-items').textContent=qtd+' '+(qtd===1?'item no pedido':'itens no pedido');document.getElementById('float-total').textContent=formatarPreco(totalComAcrescimo());document.getElementById('order-float').classList.toggle('visible',qtd>0&&etapaVisualAtual==='catalogo')}
 let visualToastTimer;
@@ -1859,7 +1863,7 @@ function atualizarBloqueioDeRolagem(){
 const FORMAS_PAGAMENTO = [
   { id: "pix", nome: "PIX" },
   { id: "dinheiro", nome: "Dinheiro" },
-  { id: "cartao", nome: "Cartão", acrescimo: 0.07, parcelasMax: 7 },
+  { id: "cartao", nome: "Cartão", acrescimo: 0.10, parcelasMax: 7 },
 ];
 
 /* =========================================================
@@ -3317,7 +3321,7 @@ function renderCarrinho(){
     blocoParcelas.style.display = "none";
   }
 
-  // PIX e dinheiro: preço do catálogo. Cartão: +7% sobre o total, à vista ou parcelado.
+  // PIX e dinheiro: preço do catálogo. Cartão: +10% sobre o total, à vista ou parcelado.
   const linhaDetalhe = document.getElementById("linha-detalhe-total");
   if(formaAtual && formaAtual.acrescimo){
     linhaDetalhe.style.display = "flex";
@@ -3586,6 +3590,7 @@ function montarMensagemWhatsapp(idPedido){
     msg += `\n\n*Retirada no local*`;
   }
   msg += `\n\n*Importante:* A reserva dos produtos e as encomendas só são feitas mediante pagamento.`;
+  msg += `\n🔒 ${avisoPix()}`;
   return msg;
 }
 
@@ -3606,7 +3611,7 @@ function montarPreviaVisual(idPedido){
     ? `<b>Total: ${formatarPreco(totalComAcrescimo())}</b>\nPagamento: ${escapeHtml(nomePagamento)}${parcelasEscolhidas > 1 ? ` — em ${parcelasEscolhidas}x de ${formatarPreco(valorParcela())}` : " — à vista"}`
     : `<b>Total: ${formatarPreco(totalCarrinho())}</b>\nPagamento: ${escapeHtml(nomePagamento)}`;
   const linhaTabela = ""; // o Studio só vende no varejo: sem "Tabela de preço"
-  return `<b>Novo pedido — Studio Renata Almeida</b>\nPedido: #${idPedido}\n${linhaTabela}Cliente: ${escapeHtml(nomeCliente)}\n\n${linhas}\n\n${blocoPagamento}\n\n${blocoEntrega}\n\n<b>Importante:</b> A reserva dos produtos e as encomendas só são feitas mediante pagamento.`;
+  return `<b>Novo pedido — Studio Renata Almeida</b>\nPedido: #${idPedido}\n${linhaTabela}Cliente: ${escapeHtml(nomeCliente)}\n\n${linhas}\n\n${blocoPagamento}\n\n${blocoEntrega}\n\n<b>Importante:</b> A reserva dos produtos e as encomendas só são feitas mediante pagamento.\n🔒 ${escapeHtml(avisoPix())}`;
 }
 
 function abrirPreviaEnvio(){
@@ -3631,7 +3636,36 @@ function fecharPreviaEnvio(){
   atualizarBloqueioDeRolagem();
 }
 
+// O pedido também vai para o programa e vira orçamento lá. Se falhar, o pedido pelo WhatsApp segue igual.
+function dadosPedidoParaPrograma(idPedido){
+  const itensChaves = new Map(Object.entries(carrinho).map(([k, v]) => [v, k]));
+  const forma = formaPagamentoAtual();
+  const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
+  const itens = Object.values(carrinho).map(item => {
+    const cod = codigoDoProgramaNoCarrinho(item, itensChaves.get(item)) || (item.idProduto ? String(item.idProduto) : "");
+    const combo = codigoDoProgramaNoCarrinho(item, itensChaves.get(item), true);
+    return { codigo: cod, nome: (combo && typeof combo === "object" && combo.nomePrograma) || item.nome, qtd: item.qtd, preco: r2(item.preco), encomenda: !!item.encomenda };
+  });
+  return {
+    codigo: String(idPedido), cliente: nomeCliente.trim(), itens,
+    forma: forma?.noPedido || forma?.nome || "", parcelas: (forma && forma.acrescimo) ? parcelasEscolhidas : 1,
+    total: r2((forma && forma.acrescimo) ? totalComAcrescimo() : totalCarrinho()),
+    entrega: entregaEscolhida === "entregar"
+      ? { tipo: "Entrega", estado: endereco.estadoSigla, cidade: endereco.cidade, bairro: endereco.bairro, rua: endereco.rua, complemento: endereco.complemento }
+      : { tipo: "Retirada" },
+  };
+}
+function enviarPedidoAoPrograma(idPedido){
+  if(!catalogoDoBanco || !URL_SUPABASE || !CHAVE_PUBLICA_SUPABASE || !idPedido) return;
+  try{
+    fetch(`${URL_SUPABASE}/rest/v1/rpc/enviar_pedido_site`, { method: "POST", keepalive: true,
+      headers: { apikey: CHAVE_PUBLICA_SUPABASE, "Content-Type": "application/json" },
+      body: JSON.stringify({ pedido: dadosPedidoParaPrograma(idPedido) }) }).catch(() => {});
+  }catch(e){}
+}
+
 function marcarPedidoEnviado(){
+  enviarPedidoAoPrograma(pedidoEmEnvio);
   anotarEncomendas(pedidoEmEnvio);
   pedidoEmEnvio = "";
   fecharPreviaEnvio();
@@ -3826,6 +3860,8 @@ function aplicarEmpresa(d){
   if(numero){ NUMERO_WHATSAPP = numero; whatsappDoPrograma = true; atualizarLinkWhatsappIndisponivel(); }
   const insta = String(d.SiteInstagram || "").trim().replace(/^https?:\/\/(www\.)?instagram\.com\//i, "").replace(/^@/, "").replace(/\/.*$/, "");
   INSTAGRAM_EMPRESA = insta;
+  const nomePix = String(d.PixNome || d.Empresa || "").replace(/\s+/g, " ").trim().slice(0, 80);
+  if(nomePix){ NOME_NO_PIX = nomePix; const t = document.getElementById("texto-aviso-pix"); if(t) t.textContent = avisoPix(); }
   const link = document.getElementById("link-instagram");
   if(link) link.hidden = !insta;
 }
